@@ -1,4 +1,4 @@
-namespace Carebed
+namespace Carebed.src
 {
     internal static class Program
     {
