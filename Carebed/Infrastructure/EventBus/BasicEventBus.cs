@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Carebed.Infrastructure.MessageEnvelope;
 
 namespace Carebed.Infrastructure.EventBus
 {
@@ -16,7 +12,7 @@ namespace Carebed.Infrastructure.EventBus
         /// <summary>
         /// Subscribes a handler to a specific event type.
         /// </summary>
-        public override void Subscribe<T>(Action<T> handler) where T : IEventMessage
+        public override void Subscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler)
         {
             base.Subscribe(handler);
         }
@@ -24,24 +20,43 @@ namespace Carebed.Infrastructure.EventBus
         /// <summary>
         /// Unsubscribes a handler from a specific event type.
         /// </summary>
-        public override void Unsubscribe<T>(Action<T> handler) where T : IEventMessage
+        public override void Unsubscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler)
         {
             base.Unsubscribe(handler);
         }
 
         /// <summary>
-        /// Publishes an event message synchronously to all subscribed handlers.
+        /// Publishes an event message asynchronously to all subscribed handlers.
         /// </summary>
-        public override Task PublishAsync<T>(T message) where T : IEventMessage
+        public override async Task PublishAsync<TPayload>(MessageEnvelope<TPayload> message)
         {
-            var handlers = GetHandlersFor<T>();
+            var handlers = GetHandlersFor<TPayload>();
+
+            if (handlers == null || handlers.Count == 0)
+            {
+                return;
+            }
+
+            var tasks = new List<Task>(handlers.Count);
 
             foreach (var handler in handlers)
             {
-                handler(message); // synchronous call
+                // run each handler on the thread-pool and isolate exceptions per-handler
+                tasks.Add(Task.Run(() =>
+                {
+                    try
+                    {
+                        handler(message);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Keep failure of one handler from stopping others; surface to debug output
+                        System.Diagnostics.Debug.WriteLine($"Event handler threw an exception: {ex}");
+                    }
+                }));
             }
 
-            return Task.CompletedTask; // satisfy async contract
+            await Task.WhenAll(tasks).ConfigureAwait(false);
         }
 
         /// <summary>

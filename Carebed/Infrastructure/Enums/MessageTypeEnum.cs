@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Carebed.Infrastructure.Enums
+﻿namespace Carebed.Infrastructure.Enums
 {
     /// <summary>
     /// Provides a high-level category or tag for the message.

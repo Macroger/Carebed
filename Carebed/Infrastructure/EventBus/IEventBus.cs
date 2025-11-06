@@ -1,10 +1,5 @@
-﻿using Carebed.Infrastructure.EventBus;
-using Microsoft.VisualBasic.Devices;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Carebed.Infrastructure.Message;
+using Carebed.Infrastructure.MessageEnvelope;
 
 namespace Carebed.Infrastructure.EventBus
 {
@@ -17,32 +12,32 @@ namespace Carebed.Infrastructure.EventBus
         /// <summary>
         /// Subscribes a handler to a specific event type.
         /// </summary>
-        /// <typeparam name="T">
+        /// <typeparam name="TPayload">
         /// The type of the event message, constrained to <see cref="IEventMessage"/>.
         /// </typeparam>
-        /// <param name="handler">The delegate to invoke when an event of type <typeparamref name="T"/> is published.</param>
-        void Subscribe<T>(Action<T> handler) where T : IEventMessage;
+        /// <param name="handler">The delegate to invoke when an event of type <typeparamref name="TPayload"/> is published.</param>
+        void Subscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage;
 
         /// <summary>
         /// Unsubscribes a handler from a specific event type.
         /// </summary>
-        /// <typeparam name="T">
+        /// <typeparam name="TPayload">
         /// The type of the event message, constrained to <see cref="IEventMessage"/>.
         /// </typeparam>
         /// <param name="handler">The delegate to remove from the subscriber registry.</param>
-        void Unsubscribe<T>(Action<T> handler) where T : IEventMessage;
+        void Unsubscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage;
 
         /// <summary>
         /// Publishes an event message asynchronously to all subscribed handlers.
         /// </summary>
-        /// <typeparam name="T">
+        /// <typeparam name="TPayload">
         /// The type of the event message, constrained to <see cref="IEventMessage"/>.
         /// </typeparam>
         /// <param name="message">The event message instance to publish.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous publish operation.
         /// </returns>
-        Task PublishAsync<T>(T message) where T : IEventMessage;
+        Task PublishAsync<TPayload>(MessageEnvelope<TPayload> message) where TPayload : IEventMessage;
 
         /// <summary>
         /// Initializes the event bus.

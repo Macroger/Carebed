@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Carebed.Infrastructure.Message;
+using Carebed.Infrastructure.MessageEnvelope;
 
 namespace Carebed.Infrastructure.EventBus
 {
@@ -33,17 +30,17 @@ namespace Carebed.Infrastructure.EventBus
         /// <summary>
         /// Subscribes a handler to a specific message type.
         /// </summary>
-        /// <typeparam name="T">
+        /// <typeparam name="TPayload">
         /// The type of the message, constrained to <see cref="IEventMessage"/>.
         /// </typeparam>
-        /// <param name="handler">The delegate to invoke when a message of type <typeparamref name="T"/> is published.</param>
+        /// <param name="handler">The delegate to invoke when a message of type <typeparamref name="TPayload"/> is published.</param>
         /// <remarks>
         /// Multiple handlers can be registered for the same message type.
         /// Thread-safe: access to the subscriber registry is protected by a lock.
         /// </remarks>
-        public virtual void Subscribe<T>(Action<T> handler) where T : IEventMessage
+        public virtual void Subscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage
         {
-            var messageType = typeof(T);
+            var messageType = typeof(TPayload);
             lock (_lock)
             {
                 if (!_subscribers.ContainsKey(messageType))
@@ -57,7 +54,7 @@ namespace Carebed.Infrastructure.EventBus
         /// <summary>
         /// Unsubscribes a handler from a specific event type.
         /// </summary>
-        /// <typeparam name="T">
+        /// <typeparam name="TPayload">
         /// The type of the message, constrained to <see cref="IEventMessage"/>.
         /// </typeparam>
         /// <param name="handler">The delegate to remove from the subscriber registry.</param>
@@ -66,9 +63,9 @@ namespace Carebed.Infrastructure.EventBus
         /// When the last handler for a given message type is removed, the type entry is cleared.
         /// Thread-safe: access to the subscriber registry is protected by a lock.
         /// </remarks>
-        public virtual void Unsubscribe<T>(Action<T> handler) where T : IEventMessage
+        public virtual void Unsubscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage
         {
-            var messageType = typeof(T);
+            var messageType = typeof(TPayload);
             lock (_lock)
             {
                 if (_subscribers.TryGetValue(messageType, out var handlers))
@@ -85,7 +82,7 @@ namespace Carebed.Infrastructure.EventBus
         /// <summary>
         /// Publishes an event message asynchronously to all subscribed handlers.
         /// </summary>
-        /// <typeparam name="T">
+        /// <typeparam name="TPayload">
         /// The type of the event message, constrained to <see cref="IEventMessage"/>.
         /// </typeparam>
         /// <param name="message">The event message instance to publish.</param>
@@ -96,7 +93,7 @@ namespace Carebed.Infrastructure.EventBus
         /// Concrete subclasses must implement this method to define the dispatch strategy
         /// (e.g., synchronous, asynchronous, queued, or distributed).
         /// </remarks>
-        public abstract Task PublishAsync<T>(T message) where T : IEventMessage;
+        public abstract Task PublishAsync<TPayload>(MessageEnvelope<TPayload> message) where TPayload : IEventMessage;
 
         /// <summary>
         /// Initializes the event bus.
@@ -128,7 +125,7 @@ namespace Carebed.Infrastructure.EventBus
         /// <summary>
         /// Retrieves all handlers subscribed to the specified event type.
         /// </summary>
-        /// <typeparam name="T">
+        /// <typeparam name="TPayload">
         /// The type of the event message, constrained to <see cref="IEventMessage"/>.
         /// </typeparam>
         /// <returns>
@@ -136,13 +133,13 @@ namespace Carebed.Infrastructure.EventBus
         /// </returns>
         /// <remarks>
         /// This helper method is intended for use by subclasses when implementing
-        /// <see cref="PublishAsync{T}"/>. It ensures consistent handler resolution
+        /// <see cref="PublishAsync{TPayload}"/>. It ensures consistent handler resolution
         /// across different event bus implementations.
         /// </remarks>
-        protected List<Action<T>> GetHandlersFor<T>() where T : IEventMessage
+        protected List<Action<MessageEnvelope<TPayload>>> GetHandlersFor<TPayload>() where TPayload : IEventMessage
         {
-            var messageType = typeof(T);
-            var handlersToInvoke = new List<Action<T>>();
+            var messageType = typeof(TPayload);
+            var handlersToInvoke = new List<Action<MessageEnvelope<TPayload>>>();
 
             lock (_lock)
             {
@@ -150,7 +147,7 @@ namespace Carebed.Infrastructure.EventBus
                 {
                     if (entry.Key.IsAssignableFrom(messageType))
                     {
-                        handlersToInvoke.AddRange(entry.Value.Cast<Action<T>>());
+                        handlersToInvoke.AddRange(entry.Value.Cast<Action<MessageEnvelope<TPayload>>>());
                     }
                 }
             }
