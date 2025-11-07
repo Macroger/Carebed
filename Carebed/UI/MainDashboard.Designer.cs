@@ -21,8 +21,8 @@ namespace Carebed
         /// </summary>
         private readonly IEventBus _eventBus;
 
-        // basic test UI controls
-        private System.Windows.Forms.Button publishButton;
+        // start/stop sensors toggle button
+        private System.Windows.Forms.Button toggleSensorsButton;
         private System.Windows.Forms.TextBox transportLogTextBox;
 
         // new UI controls for sensors overview and history
@@ -36,9 +36,9 @@ namespace Carebed
         private readonly Dictionary<string, List<(DateTime Timestamp, double Value)>> _sensorHistory = new();
         private readonly object _historyLock = new();
 
-        // simulated sensor manager (publishes random sensor data)
-        //private SimulatedSensorManager? _sensorManager;
+        // sensor manager
         private IManager _sensorManager;
+        private bool _sensorsRunning = false;
 
         /// <summary>
         /// Constructor for MainDashboard that accepts an IEventBus instance.
@@ -62,9 +62,15 @@ namespace Carebed
         {
             base.OnLoad(e);
             _eventBus.Subscribe<SensorData>(HandleSensorData);
-            _sensorManager.Start();
+
+            // Do NOT start the sensor manager automatically. User must press Start.
+            // _sensorManager.Start(); // removed to prevent automatic sensor start
 
             // start timer
+            _sensorsRunning = false;
+            RunOnUiThread(() => toggleSensorsButton.Text = _sensorsRunning ? "Stop Sensors" : "Start Sensors");
+
+            // start timer for UI refresh (keeps UI responsive even when sensors are stopped)
             refreshTimer?.Start();
         }
 
@@ -75,7 +81,7 @@ namespace Carebed
         private void HandleSensorData(MessageEnvelope<SensorData> envelope)
         {
             // fast guard: if form is closing/disposed, ignore the update
-            if (IsDisposed || Disposing) return;
+            if (IsDisposed || Disposing || !_sensorsRunning) return;
 
             // store in history, then schedule UI update via timer to reduce UI churn
             var source = envelope.Payload.Source ?? "Unknown";
@@ -130,10 +136,11 @@ namespace Carebed
         /// <param name="e"></param>
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
-            // stop sensors
+            // stop sensors if running
             try
             {
                 _sensorManager.Stop();
+                _sensorsRunning = false;
             }
             catch { }
 
@@ -172,14 +179,14 @@ namespace Carebed
         {
             this.components = new System.ComponentModel.Container();
 
-            // publishButton - generates and publishes a SensorData envelope for testing
-            this.publishButton = new System.Windows.Forms.Button();
-            this.publishButton.Name = "publishButton";
-            this.publishButton.Text = "Publish SensorData";
-            this.publishButton.Size = new System.Drawing.Size(140, 30);
-            this.publishButton.Location = new System.Drawing.Point(12, 12);
-            this.publishButton.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
-            this.publishButton.Click += publishButton_Click;
+            // toggleSensorsButton - start/stop sensors
+            this.toggleSensorsButton = new System.Windows.Forms.Button();
+            this.toggleSensorsButton.Name = "toggleSensorsButton";
+            this.toggleSensorsButton.Text = "Start Sensors";
+            this.toggleSensorsButton.Size = new System.Drawing.Size(140, 30);
+            this.toggleSensorsButton.Location = new System.Drawing.Point(12, 12);
+            this.toggleSensorsButton.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
+            this.toggleSensorsButton.Click += toggleSensorsButton_Click;
 
             // transportLogTextBox - multi-line text box to show send/receive traces
             this.transportLogTextBox = new System.Windows.Forms.TextBox();
@@ -197,12 +204,12 @@ namespace Carebed
             this.sensorsListView.View = System.Windows.Forms.View.Details;
             this.sensorsListView.FullRowSelect = true;
             this.sensorsListView.MultiSelect = false;
-            this.sensorsListView.Size = new System.Drawing.Size(245, 260);
+            this.sensorsListView.Size = new System.Drawing.Size(255, 260);
             this.sensorsListView.Location = new System.Drawing.Point(12, 50);
             this.sensorsListView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Bottom;
-            this.sensorsListView.Columns.Add("Sensor", 80);
+            this.sensorsListView.Columns.Add("Sensor", 120);
             this.sensorsListView.Columns.Add("Last Value", 80);
-            this.sensorsListView.Columns.Add("Count", 80);
+            this.sensorsListView.Columns.Add("Count", 50);
             this.sensorsListView.SelectedIndexChanged += sensorsListView_SelectedIndexChanged;
 
             // historyGridView - shows timestamped values for selected sensor
@@ -255,7 +262,7 @@ namespace Carebed
             this.Text = "Sensor Dashboard";
 
             // Add controls to the form
-            this.Controls.Add(this.publishButton);
+            this.Controls.Add(this.toggleSensorsButton);
             this.Controls.Add(this.transportLogTextBox);
             this.Controls.Add(this.sensorsListView);
             this.Controls.Add(this.historyGridView);
@@ -266,34 +273,31 @@ namespace Carebed
         #endregion
 
         /// <summary>
-        /// Click handler for the publish test button. Creates a SensorData payload,
-        /// wraps it in a MessageEnvelope and publishes it on the event bus.
+        /// Button to toggle starting/stopping sensors
         /// </summary>
-        private async void publishButton_Click(object? sender, EventArgs e)
+        private void toggleSensorsButton_Click(object? sender, EventArgs e)
         {
             try
             {
-                // create a simple random value for testing
-                var rnd = new Random();
-                //double value = Math.Round(rnd.NextDouble() * 100.0, 2);
-                double value = 80085.00f;
-
-                // construct the sensor data instance (use whichever constructor/record signature you have)
-                var sensorData = new SensorData(value, "ChestSensor");
-
-                // wrap in an envelope with origin and explicit type
-                var envelope = new MessageEnvelope<SensorData>(sensorData, MessageOriginEnum.DisplayManager, MessageTypeEnum.SensorData);
-
-                // publish asynchronously
-                await _eventBus.PublishAsync(envelope);
-
-                // append a publish trace to the transport log so tester can see send time
-                transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Published: {value:F2}\r\n");
+                if (_sensorsRunning)
+                {
+                    _sensorManager.Stop();
+                    _sensorsRunning = false;
+                    toggleSensorsButton.Text = "Start Sensors";
+                    transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors stopped by user\r\n");
+                }
+                else
+                {
+                    _sensorManager.Start();
+                    _sensorsRunning = true;
+                    toggleSensorsButton.Text = "Stop Sensors";
+                    transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors started by user\r\n");
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Publish failed: {ex}");
-                MessageBox.Show($"Publish failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                System.Diagnostics.Debug.WriteLine($"Toggle sensors failed: {ex}");
+                MessageBox.Show($"Failed to toggle sensors: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
