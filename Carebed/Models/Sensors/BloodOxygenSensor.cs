@@ -1,4 +1,3 @@
-csharp Carebed\Models\Sensors\BloodOxygenSensor.cs
 using System;
 using Carebed.Infrastructure.Message;
 

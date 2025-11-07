@@ -1,4 +1,3 @@
-csharp Carebed\Models\Sensors\HeartRateSensor.cs
 using System;
 using Carebed.Infrastructure.Message;
 

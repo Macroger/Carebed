@@ -1,10 +1,9 @@
-csharp Carebed\Models\Sensors\AbstractSensor.cs
 using System;
 using System.Collections.Generic;
 using Carebed.Infrastructure.Message;
 
 namespace Carebed.Domain.Sensors
-{
+{   
     /// <summary>
     /// Base implementation for sensors. Provides Source property and basic lifecycle stubs.
     /// Concrete sensors implement <see cref="ReadData"/>.

@@ -1,4 +1,3 @@
-csharp Carebed\Models\Sensors\TemperatureSensor.cs
 using System;
 using Carebed.Infrastructure.Message;
 

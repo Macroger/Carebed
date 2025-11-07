@@ -1,4 +1,3 @@
-csharp Carebed\Modules\Sensor\SensorDevice.cs
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;

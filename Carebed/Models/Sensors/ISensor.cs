@@ -1,26 +1,33 @@
 ﻿using System;
+using Carebed.Infrastructure.Message;
 
 namespace Carebed.Domain.Sensors
 {
     /// <summary>
     /// Minimal sensor contract used by the application composition root.
-    /// Kept intentionally small so implementations can live in Modules or Domain
-    /// without forcing heavy coupling.
+    /// Implementations return a <see cref="SensorData"/> snapshot when polled.
     /// </summary>
     internal interface ISensor : IDisposable
     {
         /// <summary>
         /// Logical source/id for the sensor (e.g. "Room A").
         /// </summary>
-        string Source { get; }
+        string Source { get; }  
 
         /// <summary>
-        /// Start periodic sampling/publishing.
+        /// Read a single snapshot of sensor data. This is called by the SensorManager every poll cycle.
+        /// </summary>
+        /// <returns>A <see cref="SensorData"/> payload representing the current reading.</returns>
+        SensorData ReadData();
+
+        /// <summary>
+        /// Start periodic sampling if the sensor implements its own timer (optional).
+        /// SensorManager will call this when it is started.
         /// </summary>
         void Start();
 
         /// <summary>
-        /// Stop sampling/publishing.
+        /// Stop periodic sampling (optional).
         /// </summary>
         void Stop();
     }
