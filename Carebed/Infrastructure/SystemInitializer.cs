@@ -1,4 +1,5 @@
 ﻿using Carebed.Infrastructure.EventBus;
+using Carebed.Managers;
 using Carebed.Modules;
 
 namespace Carebed.Infrastructure
@@ -17,13 +18,10 @@ namespace Carebed.Infrastructure
             eventBus.Initialize();
 
             // create managers placeholders
-            //var sensorManager = new SensorManager(eventBus);
+            var sensorManager = new SimulatedSensorManager(eventBus);
             //var actuatorManager = new ActuatorManager(eventBus);
 
-
-
-
-            return (eventBus,null,null);
+            return (eventBus, sensorManager, null);
         }
     }
 

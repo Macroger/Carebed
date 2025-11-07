@@ -6,7 +6,21 @@ using System.Threading.Tasks;
 
 namespace Carebed.Managers
 {
-    internal class DisplayManager
+    internal class DisplayManager : IManager
     {
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Start()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Stop()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -4,7 +4,7 @@ using Carebed.Infrastructure.Message;
 using Carebed.Infrastructure.MessageEnvelope;
 using System.Collections.Generic;
 using System.Linq;
-using Carebed.Infrastructure.Sensors;
+using Carebed.Managers;
 
 namespace Carebed
 {
@@ -97,9 +97,9 @@ namespace Carebed
 
                 list.Add((timestamp, value));
 
-                // cap history to last 500 entries per sensor to avoid unbounded growth
-                if (list.Count > 500)
-                    list.RemoveRange(0, list.Count - 500);
+                // cap history to last 5000 entries per sensor to avoid unbounded growth
+                if (list.Count > 5000)
+                    list.RemoveRange(0, list.Count - 5000);
             }
 
             // update transport log quickly on UI thread
