@@ -5,13 +5,15 @@
     /// Useful for routing, prioritization, or UI display.
     /// These should map back to specific message classes in the system.
     /// </summary>
-    public enum MessageTypeEnum
+    public enum MessageType
     {
         Undefined = 0,
         SensorData,
         Alert,
         ActuatorCommand,
         ActuatorStatus,
+        ActuatorError,
+        ActuatorTelemetry,
         System
         // Add more as needed
     }

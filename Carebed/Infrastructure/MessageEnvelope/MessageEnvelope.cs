@@ -23,12 +23,12 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// <summary>
         /// Origin of the message.
         /// </summary>
-        public MessageOriginEnum MessageOrigin { get; }
+        public MessageOrigin MessageOrigin { get; }
 
         /// <summary>
         /// Message type of the payload.
         /// </summary>
-        public MessageTypeEnum MessageType { get; }
+        public MessageType MessageType { get; }
 
         /// <summary>
         /// The actual payload of the message.
@@ -52,8 +52,8 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// <exception cref="ArgumentNullException"></exception>
         public MessageEnvelope(
             T payload,
-            MessageOriginEnum origin,
-            MessageTypeEnum type = MessageTypeEnum.Undefined)
+            MessageOrigin origin,
+            MessageType type = MessageType.Undefined)
         {
             // Validate and assign properties
 

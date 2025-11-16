@@ -117,7 +117,7 @@ namespace Carebed.Infrastructure.Sensors
                     {
                         var value = s.NextValue();
                         var payload = new SensorData(value, s.Name);
-                        var envelope = new MessageEnvelope<SensorData>(payload, MessageOriginEnum.SensorManager, MessageTypeEnum.SensorData);
+                        var envelope = new MessageEnvelope<SensorData>(payload, MessageOrigin.SensorManager, MessageType.SensorData);
                         _ = _eventBus.PublishAsync(envelope);
                     }
 

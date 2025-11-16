@@ -21,12 +21,12 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// <summary>
         /// The origin of the message.
         /// </summary>
-        MessageOriginEnum MessageOrigin { get; }
+        MessageOrigin MessageOrigin { get; }
        
         /// <summary>
         /// Type of the message represented by this instance.
         /// </summary>
-        MessageTypeEnum MessageType { get; }
+        MessageType MessageType { get; }
 
         /// <summary>
         /// The actual payload of the message.

@@ -22,7 +22,7 @@ namespace Carebed.Infrastructure.Message
         /// <summary>
         /// Gets the type of message represented by this instance.
         /// </summary>
-        public MessageTypeEnum MessageType { get; init; } = MessageTypeEnum.SensorData;
+        public MessageType MessageType { get; init; } = MessageType.SensorData;
 
         /// <summary>
         /// Optional source identifier associated with the data or event.

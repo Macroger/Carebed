@@ -30,7 +30,7 @@ namespace Carebed.Tests.EventBus
 
             // Create payload and envelope
             var payload = new SensorData(42.5);
-            var envelope = new MessageEnvelope<SensorData>(payload, MessageOriginEnum.SensorManager, MessageTypeEnum.SensorData);
+            var envelope = new MessageEnvelope<SensorData>(payload, MessageOrigin.SensorManager, MessageType.SensorData);
 
             // Publish and await completion
             await bus.PublishAsync(envelope);

@@ -64,7 +64,7 @@ namespace Carebed.Modules
         {
             _timer.Stop();
             foreach (var s in _sensors) s.Stop();
-            //_eventBus.Shutdown(); // This method is actually run in SystemInitializer and only needs to be run once - so I am commenting it out here.
+            //_eventBus.Shutdown(); // This method is actually run in SystemInitializer and only needs to be run once - so I am commenting it out here. - M.S.
         }
 
         /// <summary>
@@ -90,7 +90,7 @@ namespace Carebed.Modules
                     try
                     {
                         var payload = sensor.ReadData();
-                        var envelope = new MessageEnvelope<SensorData>(payload, MessageOriginEnum.SensorManager, MessageTypeEnum.SensorData);
+                        var envelope = new MessageEnvelope<SensorData>(payload, MessageOrigin.SensorManager, MessageType.SensorData);
                         publishTasks.Add(_eventBus.PublishAsync(envelope));
                     }
                     catch (Exception exSensor)
@@ -130,4 +130,37 @@ namespace Carebed.Modules
             foreach (var s in _sensors) s.Dispose();
         }
     }
+
+
+
+
+    public enum ActuatorState
+    {
+        Idle,
+        Moving,
+        Locked,
+        Error,
+        Completed
+    }
+
+    public static class ActuatorStateTransitions
+    {
+        private static readonly Dictionary<ActuatorState, ActuatorState[]> _validTransitions = new()
+    {
+        { ActuatorState.Idle, new[] { ActuatorState.Moving, ActuatorState.Locked } },
+        { ActuatorState.Moving, new[] { ActuatorState.Completed, ActuatorState.Error } },
+        { ActuatorState.Completed, new[] { ActuatorState.Idle } },
+        { ActuatorState.Locked, new[] { ActuatorState.Idle } },
+        { ActuatorState.Error, new[] { ActuatorState.Idle } }
+    };
+
+        public static bool CanTransition(ActuatorState from, ActuatorState to)
+        {
+            return _validTransitions.TryGetValue(from, out var allowed) && allowed.Contains(to);
+        }
+    }
 }
+
+
+
+

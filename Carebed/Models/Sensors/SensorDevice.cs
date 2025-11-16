@@ -65,7 +65,7 @@ namespace Carebed.Modules.Sensor
                     Metadata: metadata
                 );
 
-                var envelope = new MessageEnvelope<SensorData>(payload, MessageOriginEnum.SensorManager, MessageTypeEnum.SensorData);
+                var envelope = new MessageEnvelope<SensorData>(payload, MessageOrigin.SensorManager, MessageType.SensorData);
 
                 // Fire-and-forget the async publish; BasicEventBus executes handlers on thread-pool.
                 _ = _eventBus.PublishAsync(envelope);
