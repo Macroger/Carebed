@@ -1,6 +1,6 @@
 ﻿using Carebed.Infrastructure.Enums;
 
-namespace Carebed.Infrastructure.Message
+namespace Carebed.Infrastructure.Message.SensorMessages
 {
     public sealed record SensorData(
         double Value,

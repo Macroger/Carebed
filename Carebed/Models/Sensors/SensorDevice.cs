@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Carebed.Infrastructure.EventBus;
-using Carebed.Infrastructure.Message;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Infrastructure.Enums;
+using Carebed.Infrastructure.Message.SensorMessages;
 
 namespace Carebed.Modules.Sensor
 {

@@ -1,6 +1,6 @@
 ﻿using Carebed.Infrastructure.Enums;
 using Carebed.Infrastructure.EventBus;
-using Carebed.Infrastructure.Message;
+using Carebed.Infrastructure.Message.SensorMessages;
 using Carebed.Infrastructure.MessageEnvelope;
 
 namespace Carebed.Tests.EventBus

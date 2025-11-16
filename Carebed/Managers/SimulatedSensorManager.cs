@@ -1,8 +1,8 @@
 using Carebed.Infrastructure.EventBus;
-using Carebed.Infrastructure.Message;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Infrastructure.Enums;
-using Carebed.Managers; // IManager
+using Carebed.Managers;
+using Carebed.Infrastructure.Message.SensorMessages; // IManager
 
 
 /*

@@ -1,11 +1,11 @@
 ﻿using Carebed.Infrastructure.Enums;
 using Carebed.Infrastructure.EventBus;
-using Carebed.Infrastructure.Message;
 using Carebed.Infrastructure.MessageEnvelope;
 using System.Collections.Generic;
 using System.Linq;
 using Carebed.Managers;
 using Carebed.Modules;
+using Carebed.Infrastructure.Message.SensorMessages;
 
 namespace Carebed
 {

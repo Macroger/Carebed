@@ -13,7 +13,7 @@
  *   Some or all of the tests in this file were generated or assisted by GitHub Copilot AI.
  *   Please review and validate for correctness and completeness.
  ******************************************************************************/
-using Carebed.Infrastructure.Message;
+using Carebed.Infrastructure.Message.SensorMessages;
 using Carebed.Infrastructure.MessageEnvelope;
 
 

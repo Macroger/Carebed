@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Carebed.Infrastructure.Message;
+using Carebed.Infrastructure.Message.SensorMessages;
 
 namespace Carebed.Domain.Sensors
 {   

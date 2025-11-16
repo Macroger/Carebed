@@ -1,10 +1,10 @@
 ﻿using System.ComponentModel;
 using Carebed.Domain.Sensors;
 using Carebed.Infrastructure.EventBus;
-using Carebed.Infrastructure.Message;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Infrastructure.Enums;
 using Carebed.Managers;
+using Carebed.Infrastructure.Message.SensorMessages;
 
 namespace Carebed.Modules
 {
