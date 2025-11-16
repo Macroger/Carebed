@@ -19,14 +19,15 @@ namespace Carebed.Infrastructure
             //    new PressureSensor(),
             //    // ... add more sensors as needed
             //};
-
+            var alertManager = new AlertManager(eventBus);
             var sensorManager = new SimulatedSensorManager(eventBus);
             // var actuatorManager = new ActuatorManager(eventBus, actuators);
             // var displayManager = new DisplayManager(eventBus, displays);
 
             var managers = new List<IManager>
             {
-                sensorManager
+                sensorManager,
+                alertManager
                 // actuatorManager,
                 // displayManager
             };
