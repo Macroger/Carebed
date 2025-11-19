@@ -15,17 +15,12 @@ namespace Carebed.Infrastructure.Message
         /// <summary>
         /// Correlation ID to link related messages together
         /// </summary>
-        Guid? CorrelationId { get; }
+        Guid CorrelationId { get; }
 
         /// <summary>
-        /// Describes the message type (e.g. Info, Warning, Error)
+        /// Gets the source identifier associated with the data or event, e.g. "SensorManager", "ActuatorManager", "AlertHandler".
         /// </summary>
-        MessageType MessageType { get; }
-
-        ///// <summary>
-        ///// Gets the source identifier associated with the data or event, e.g. "Sensor:temperature-1".
-        ///// </summary>
-        //string? Source { get; }                 
+        MessageOrigin MessageSource { get; }
 
         /// <summary>
         /// An optional dictionary for additional metadata

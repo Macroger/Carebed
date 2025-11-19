@@ -29,8 +29,9 @@ namespace Carebed.Infrastructure.MessageEnvelope
         MessageType MessageType { get; }
 
         /// <summary>
-        /// The actual payload of the message.
+        /// The actual payload of the message. This property is required.
         /// </summary>
+        [System.ComponentModel.DataAnnotations.Required]
         object Payload { get; }
 
         /// <summary>

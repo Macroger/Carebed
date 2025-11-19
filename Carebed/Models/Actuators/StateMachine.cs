@@ -2,6 +2,10 @@
 
 namespace Carebed.Models.Actuators
 {
+    /// <summary>
+    /// Represents a generic state machine for managing states of type TState.
+    /// </summary>
+    /// <typeparam name="TState"></typeparam>
     public class StateMachine<TState> where TState : Enum
     {
         /// <summary>

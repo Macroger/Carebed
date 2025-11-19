@@ -1,4 +1,5 @@
-﻿using Carebed.Infrastructure.Message.Actuator;
+﻿using Carebed.Infrastructure.Enums;
+using Carebed.Infrastructure.Message.Actuator;
 
 namespace Carebed.Infrastructure.Message.ActuatorMessages
 {
@@ -15,5 +16,10 @@ namespace Carebed.Infrastructure.Message.ActuatorMessages
         /// Intended for logs, UI alerts, and operator guidance.
         /// </summary>
         public required string Description { get; set; }
+
+        /// <summary>
+        /// The current or relevant state of the actuator.
+        /// </summary>
+        public required ActuatorState CurrentState { get; set; }
     }
 }

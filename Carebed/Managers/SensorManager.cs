@@ -3,10 +3,9 @@ using Carebed.Domain.Sensors;
 using Carebed.Infrastructure.EventBus;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Infrastructure.Enums;
-using Carebed.Managers;
 using Carebed.Infrastructure.Message.SensorMessages;
 
-namespace Carebed.Modules
+namespace Carebed.Managers
 {
     /// <summary>
     /// Top-level manager that polls configured sensors on a single timer and
@@ -128,35 +127,6 @@ namespace Carebed.Modules
             Stop();
             _timer?.Dispose();
             foreach (var s in _sensors) s.Dispose();
-        }
-    }
-
-
-
-
-    public enum ActuatorState
-    {
-        Idle,
-        Moving,
-        Locked,
-        Error,
-        Completed
-    }
-
-    public static class ActuatorStateTransitions
-    {
-        private static readonly Dictionary<ActuatorState, ActuatorState[]> _validTransitions = new()
-    {
-        { ActuatorState.Idle, new[] { ActuatorState.Moving, ActuatorState.Locked } },
-        { ActuatorState.Moving, new[] { ActuatorState.Completed, ActuatorState.Error } },
-        { ActuatorState.Completed, new[] { ActuatorState.Idle } },
-        { ActuatorState.Locked, new[] { ActuatorState.Idle } },
-        { ActuatorState.Error, new[] { ActuatorState.Idle } }
-    };
-
-        public static bool CanTransition(ActuatorState from, ActuatorState to)
-        {
-            return _validTransitions.TryGetValue(from, out var allowed) && allowed.Contains(to);
         }
     }
 }

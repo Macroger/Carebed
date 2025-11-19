@@ -1,5 +1,4 @@
 ﻿using Carebed.Infrastructure.Enums;
-using Carebed.Modules;
 
 namespace Carebed.Infrastructure.Message.Actuator
 {
@@ -13,12 +12,7 @@ namespace Carebed.Infrastructure.Message.Actuator
         /// <summary>
         /// The type of actuator (e.g., BedLift, HeadTilt).
         /// </summary>
-        public required ActuatorType Type { get; set; }
-
-        /// <summary>
-        /// The current or relevant state of the actuator.
-        /// </summary>
-        public required ActuatorState CurrentState { get; set; }
+        public required ActuatorType TypeOfActuator { get; set; }
 
         /// <summary>
         /// Timestamp of when the message was created.
@@ -26,14 +20,14 @@ namespace Carebed.Infrastructure.Message.Actuator
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         /// <summary>
-        /// An (optional) unique identifier to correlate related messages.
+        /// A required unique identifier to correlate related messages.
         /// </summary>
-        public Guid? CorrelationId { get; set; }
+        public Guid CorrelationId { get; set; } = Guid.NewGuid();
 
         /// <summary>
         /// The type of message (ActuatorStatus, ActuatorError, ActuatorTelemetry).
         /// </summary>
-        public MessageType MessageType { get; set; } = MessageType.Undefined;
+        //public MessageType MessageType { get; set; } = MessageType.Undefined;
 
         /// <summary>
         /// An optional dictionary for additional metadata.
@@ -46,12 +40,17 @@ namespace Carebed.Infrastructure.Message.Actuator
         public bool IsCritical { get; set; } = false;
 
         /// <summary>
+        /// Gets the source identifier associated with the data or event.
+        /// </summary>
+        //public required MessageOrigin MessageSource { get; init; }
+
+        /// <summary>
         /// A convenience method to provide a string representation of the actuator message.
         /// </summary>
         /// <returns></returns>
         public override string ToString()
         {
-            return $"{GetType().Name} for {ActuatorId} ({Type}) at {CreatedAt:u}";
+            return $"{GetType().Name} for {ActuatorId} ({TypeOfActuator}) at {CreatedAt:u}";
         }
     }
 }

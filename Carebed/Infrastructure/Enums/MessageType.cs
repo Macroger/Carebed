@@ -11,6 +11,7 @@
         SensorData,
         Alert,
         ActuatorCommand,
+        ActuatorCommandAck,
         ActuatorStatus,
         ActuatorError,
         ActuatorTelemetry,

@@ -17,9 +17,5 @@ namespace Carebed.Infrastructure.Message.ActuatorMessages
         /// </summary>
         public Dictionary<string, object>? Parameters { get; set; } = new();
 
-        /// <summary>
-        /// Optional source role or originator (e.g., Nurse, System, SafetyManager).
-        /// </summary>
-        public string? SourceRole { get; set; }
     }
 }

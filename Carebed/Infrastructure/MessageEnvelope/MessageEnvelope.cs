@@ -41,7 +41,7 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// can access it like a IMessageEnvelope if we don't know the type T at compile time.<br/>
         /// <br/>Otherwise one can access the strongly typed Payload property.
         /// </summary>
-        object IMessageEnvelope.Payload => Payload;
+        object IMessageEnvelope.Payload => Payload!;
 
         /// <summary>
         /// This constructor initializes a new instance of the MessageEnvelope class.
