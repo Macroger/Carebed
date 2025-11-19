@@ -20,7 +20,7 @@ namespace Carebed.Infrastructure.Message
         /// <summary>
         /// Gets the source identifier associated with the data or event, e.g. "SensorManager", "ActuatorManager", "AlertHandler".
         /// </summary>
-        MessageOrigin MessageSource { get; }
+        //MessageOrigin MessageSource { get; }
 
         /// <summary>
         /// An optional dictionary for additional metadata

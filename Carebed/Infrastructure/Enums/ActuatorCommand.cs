@@ -34,6 +34,16 @@ namespace Carebed.Infrastructure.Enums
         Unlock,
 
         /// <summary>
+        /// Turns on a binary actuator.
+        /// </summary>
+        ActivateLamp,
+
+        /// <summary>
+        /// Turns off a binary actuator.
+        /// </summary>
+        DeactivateLamp,
+
+        /// <summary>
         /// Resets the actuator to its default or idle state.
         /// </summary>
         Reset

@@ -34,9 +34,6 @@ namespace Carebed.Models.Actuators
         /// <summary>
         /// Constructor for the ActuatorBase class.
         /// </summary>
-        /// <param name="actuatorId"></param>
-        /// <param name="type"></param>
-        /// <param name="transitionMap"></param>
         protected ActuatorBase(string actuatorId, ActuatorType type, Dictionary<ActuatorState, ActuatorState[]> transitionMap)
         {
             ActuatorId = actuatorId;
@@ -47,8 +44,6 @@ namespace Carebed.Models.Actuators
         /// <summary>
         /// A method to attempt a state transition in the actuator's state machine.
         /// </summary>
-        /// <param name="next"></param>
-        /// <returns></returns>
         public bool TryTransition(ActuatorState next)
         {
             if (_stateMachine.TryTransition(next))
@@ -62,6 +57,9 @@ namespace Carebed.Models.Actuators
         /// <summary>
         /// Attempts to execute the specified actuator command.
         /// </summary>
+        /// <remarks>
+        /// **Must be implemented by derived classes.**
+        /// </remarks>
         /// <param name="command">The <see cref="ActuatorCommand"/> to be executed. Cannot be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if the command was successfully executed; otherwise, <see langword="false"/>.</returns>
         public abstract bool TryExecute(ActuatorCommand command);

@@ -17,7 +17,7 @@ namespace Carebed.Infrastructure.Message.SensorMessages
         /// <summary>
         /// Gets an (optional) unique identifier used to correlate related operations or requests.
         /// </summary>
-        public Guid? CorrelationId { get; init; } = Guid.NewGuid();
+        public Guid CorrelationId { get; init; } = Guid.NewGuid();
 
         /// <summary>
         /// Gets the type of message represented by this instance.

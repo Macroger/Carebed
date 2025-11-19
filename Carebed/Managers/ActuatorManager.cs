@@ -20,6 +20,8 @@ namespace Carebed.Managers
         public ActuatorManager(IEventBus eventBus, IEnumerable<IActuator> actuators)
         {
             _eventBus = eventBus;
+
+            // Future improvement: Check for duplicate actuator IDs and handle accordingly.
             foreach (var actuator in actuators)
             {
                 Action<ActuatorState> handler = state => HandleStateChanged(actuator, state);
