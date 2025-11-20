@@ -16,7 +16,7 @@ namespace Carebed.Models.Actuators
         #endregion
 
         #region Constructor(s)
-        public SimulatedBedLamp(string actuatorId): base(actuatorId, ActuatorType.Lamp, GetTransitionMap())
+        public SimulatedBedLamp(string actuatorId): base(actuatorId, ActuatorTypes.Lamp, GetTransitionMap())
         {
         }
 
@@ -29,13 +29,13 @@ namespace Carebed.Models.Actuators
         /// For a binary actuator like a lamp, valid states include On, Off, and Error.
         /// </summary>
         /// <returns>The transition map for the actuator's states.</returns>
-        private static Dictionary<ActuatorState, ActuatorState[]> GetTransitionMap()
+        private static Dictionary<ActuatorStates, ActuatorStates[]> GetTransitionMap()
         {
-            return new Dictionary<ActuatorState, ActuatorState[]>
+            return new Dictionary<ActuatorStates, ActuatorStates[]>
             {
-                { ActuatorState.Off, new[] { ActuatorState.On, ActuatorState.Error } },
-                { ActuatorState.On, new[] { ActuatorState.Off, ActuatorState.Error } },
-                { ActuatorState.Error, new[] { ActuatorState.Off } }
+                { ActuatorStates.Off, new[] { ActuatorStates.On, ActuatorStates.Error } },
+                { ActuatorStates.On, new[] { ActuatorStates.Off, ActuatorStates.Error } },
+                { ActuatorStates.Error, new[] { ActuatorStates.Off } }
             };
         }
 
@@ -44,13 +44,13 @@ namespace Carebed.Models.Actuators
         /// </summary>
         /// <param name="command">The ActuatorCommand to attempt.</param>
         /// <returns>True: if the command was successfully executed; otherwise, returns False.</returns>
-        public override bool TryExecute(ActuatorCommand command)
+        public override bool TryExecute(ActuatorCommands command)
         {
             // Attempt the command by transitioning to the appropriate state
             switch (command)
             {
-                case ActuatorCommand.ActivateLamp:
-                    if (TryTransition(ActuatorState.On))
+                case ActuatorCommands.ActivateLamp:
+                    if (TryTransition(ActuatorStates.On))
                     {
                         _onTimestamp = DateTime.UtcNow;
                         return true;
@@ -58,8 +58,8 @@ namespace Carebed.Models.Actuators
 
                     return false;
 
-                case ActuatorCommand.DeactivateLamp:
-                    if (TryTransition(ActuatorState.Off))
+                case ActuatorCommands.DeactivateLamp:
+                    if (TryTransition(ActuatorStates.Off))
                     {
                         _onTimestamp = null;
                         return true;
@@ -80,13 +80,13 @@ namespace Carebed.Models.Actuators
         public override ActuatorTelemetryMessage GetTelemetry()
         {
             double temperature = 20.0;
-            if (CurrentState == ActuatorState.On && _onTimestamp.HasValue)
+            if (CurrentState == ActuatorStates.On && _onTimestamp.HasValue)
             {
                 var secondsOn = (DateTime.UtcNow - _onTimestamp.Value).TotalSeconds;
                 temperature = Math.Min(20.0 + secondsOn * 2, 80.0); // Ramps up 2°C per second, max 80°C
             }
 
-            double wattsConsumed = CurrentState == ActuatorState.On ? 15.0 : 0.0; // Assume lamp consumes 15W when on
+            double wattsConsumed = CurrentState == ActuatorStates.On ? 15.0 : 0.0; // Assume lamp consumes 15W when on
 
             return new ActuatorTelemetryMessage
             {
@@ -102,7 +102,7 @@ namespace Carebed.Models.Actuators
         public override void Reset()
         {
             // Transition to Off state on reset
-            TryTransition(ActuatorState.Off);
+            TryTransition(ActuatorStates.Off);
         }
 
         #endregion

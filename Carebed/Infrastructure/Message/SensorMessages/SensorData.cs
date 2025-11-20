@@ -14,7 +14,7 @@ namespace Carebed.Infrastructure.Message.SensorMessages
         public required string Source { get; init; }
 
         // The type of sensor (e.g., Temperature, HeartRate, EEG)
-        public required SensorType SensorType { get; init; }
+        public required SensorTypes SensorType { get; init; }
 
         // Indicates if the reading is considered critical (e.g., out of safe range)
         public required bool IsCritical { get; init; }
@@ -29,6 +29,6 @@ namespace Carebed.Infrastructure.Message.SensorMessages
         public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 
         // Optional: Sensor state at the time of reading (if relevant)
-        public SensorState? State { get; init; }
+        public SensorStates? State { get; init; }
     }
 }

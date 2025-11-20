@@ -24,12 +24,12 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// <summary>
         /// Origin of the message.
         /// </summary>
-        public MessageOrigin MessageOrigin { get; }
+        public MessageOrigins MessageOrigin { get; }
 
         /// <summary>
         /// Message type of the payload.
         /// </summary>
-        public MessageType MessageType { get; }
+        public MessageTypes MessageType { get; }
 
         /// <summary>
         /// The actual payload of the message.
@@ -57,8 +57,8 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// <exception cref="ArgumentNullException"></exception>
         public MessageEnvelope(
             T payload,
-            MessageOrigin origin,
-            MessageType type = MessageType.Undefined)
+            MessageOrigins origin,
+            MessageTypes type = MessageTypes.Undefined)
         {
             // Validate and assign properties
 

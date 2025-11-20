@@ -13,6 +13,6 @@ namespace Carebed.Infrastructure.Message.ActuatorMessages
         /// <summary>
         /// The current or relevant state of the actuator.
         /// </summary>
-        public required ActuatorState CurrentState { get; set; }
+        public required ActuatorStates CurrentState { get; set; }
     }
 }

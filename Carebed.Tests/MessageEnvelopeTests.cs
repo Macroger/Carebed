@@ -33,7 +33,7 @@ namespace Carebed.Tests
                 IsCritical: false,
                 Metadata: null
             );
-            var envelope = new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigin.Unknown);
+            var envelope = new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigins.Unknown);
 
             // Act & Assert
 
@@ -41,7 +41,7 @@ namespace Carebed.Tests
             Assert.AreEqual(payload, envelope.Payload);
 
             // Test that the MessageOrigin is set correctly
-            Assert.AreEqual(Infrastructure.Enums.MessageOrigin.Unknown, envelope.MessageOrigin);
+            Assert.AreEqual(Infrastructure.Enums.MessageOrigins.Unknown, envelope.MessageOrigin);
         }
 
         [TestMethod]
@@ -52,7 +52,7 @@ namespace Carebed.Tests
 
             // Act & Assert
             // Ensure that the function throws an exception because nulls are not allowed
-            Assert.ThrowsException<ArgumentNullException>(() => new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigin.Unknown));
+            Assert.ThrowsException<ArgumentNullException>(() => new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigins.Unknown));
         }
 
         [TestMethod]
@@ -64,7 +64,7 @@ namespace Carebed.Tests
                 IsCritical: false,
                 Metadata: null
             );
-            var envelope = new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigin.Unknown);
+            var envelope = new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigins.Unknown);
 
             Assert.AreEqual(payload, envelope.Payload);
             Assert.IsNull(envelope.Payload.Source);

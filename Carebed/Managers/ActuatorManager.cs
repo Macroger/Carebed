@@ -15,7 +15,7 @@ namespace Carebed.Managers
         /// <summary>
         /// A dictionary mapping actuators to their state change handlers.
         /// </summary>
-        private readonly Dictionary<IActuator, Action<ActuatorState>> _stateChangedHandlers = new();
+        private readonly Dictionary<IActuator, Action<ActuatorStates>> _stateChangedHandlers = new();
 
         public ActuatorManager(IEventBus eventBus, IEnumerable<IActuator> actuators)
         {
@@ -24,7 +24,7 @@ namespace Carebed.Managers
             // Future improvement: Check for duplicate actuator IDs and handle accordingly.
             foreach (var actuator in actuators)
             {
-                Action<ActuatorState> handler = state => HandleStateChanged(actuator, state);
+                Action<ActuatorStates> handler = state => HandleStateChanged(actuator, state);
                 _stateChangedHandlers[actuator] = handler;
                 actuator.OnStateChanged += handler;
                 _actuators[actuator.ActuatorId] = actuator;
@@ -36,11 +36,11 @@ namespace Carebed.Managers
         /// </summary>
         /// <param name="actuator"></param>
         /// <param name="state"></param>
-        private async void HandleStateChanged(IActuator actuator, ActuatorState state)
+        private async void HandleStateChanged(IActuator actuator, ActuatorStates state)
         {
             //var telemetry = actuator.GetTelemetry();
 
-            if (state == ActuatorState.Error)
+            if (state == ActuatorStates.Error)
             {
                 // Publish an error message if the actuator enters the Error state
                 var errorMsg = new ActuatorErrorMessage
@@ -54,8 +54,8 @@ namespace Carebed.Managers
 
                 var errorEnvelope = new MessageEnvelope<ActuatorErrorMessage>(
                     errorMsg,
-                    MessageOrigin.ActuatorManager,
-                    MessageType.ActuatorError
+                    MessageOrigins.ActuatorManager,
+                    MessageTypes.ActuatorError
                 );
 
                 // Publish the error message asynchronously to the event bus
@@ -72,8 +72,8 @@ namespace Carebed.Managers
 
                 var statusEnvelope = new MessageEnvelope<ActuatorStatusMessage>(
                     statusUpdate,
-                    MessageOrigin.ActuatorManager,
-                    MessageType.ActuatorStatus
+                    MessageOrigins.ActuatorManager,
+                    MessageTypes.ActuatorStatus
                 );
 
                 await _eventBus.PublishAsync(statusEnvelope);
@@ -135,8 +135,8 @@ namespace Carebed.Managers
 
             var envelope = new MessageEnvelope<ActuatorCommandAckMessage>(
                 ackMessage,
-                MessageOrigin.ActuatorManager,
-                MessageType.ActuatorCommandAck
+                MessageOrigins.ActuatorManager,
+                MessageTypes.ActuatorCommandAck
             );
 
             await _eventBus.PublishAsync(envelope);

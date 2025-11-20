@@ -36,12 +36,12 @@ namespace Carebed.Domain.Sensors
         /// <summary>
         /// Gets the current state of the actuator.
         /// </summary>
-        public SensorState CurrentState => _stateMachine.Current;
+        public SensorStates CurrentState => _stateMachine.Current;
 
         /// <summary>
         /// A state machine to manage the actuator's states and transitions.
         /// </summary>
-        protected readonly StateMachine<SensorState> _stateMachine;
+        protected readonly StateMachine<SensorStates> _stateMachine;
 
         #endregion
 
@@ -56,7 +56,7 @@ namespace Carebed.Domain.Sensors
             _min = min;
             _max = max;
             _criticalThreshold = criticalThreshold; 
-            _stateMachine = new StateMachine<SensorState>(SensorState.Uninitialized, GetTransitionMap());
+            _stateMachine = new StateMachine<SensorStates>(SensorStates.Uninitialized, GetTransitionMap());
         }
 
         #endregion
@@ -66,7 +66,7 @@ namespace Carebed.Domain.Sensors
         /// <summary>
         /// Event triggered when the actuator transitions to a new state.
         /// </summary>
-        public event Action<ActuatorState>? OnStateChanged;
+        public event Action<ActuatorStates>? OnStateChanged;
 
         #endregion
 
@@ -78,7 +78,7 @@ namespace Carebed.Domain.Sensors
         public virtual void Start()
         {
             // Start internal timer, open hardware connection, etc.
-            _stateMachine.TryTransition(SensorState.Running);
+            _stateMachine.TryTransition(SensorStates.Running);
         }
 
         /// <summary>
@@ -87,7 +87,7 @@ namespace Carebed.Domain.Sensors
         public virtual void Stop()
         {
             // Stop timer, close connection, etc.
-            _stateMachine.TryTransition(SensorState.Stopped);
+            _stateMachine.TryTransition(SensorStates.Stopped);
         }
 
         /// <summary>
@@ -99,17 +99,17 @@ namespace Carebed.Domain.Sensors
         /// Gets the transition map for the sensor's states. Can be overridden by derived classes to customize state transitions.
         /// </summary>
         /// <returns></returns>
-        protected virtual Dictionary<SensorState, SensorState[]> GetTransitionMap()
+        protected virtual Dictionary<SensorStates, SensorStates[]> GetTransitionMap()
         {
-            return new Dictionary<SensorState, SensorState[]>
+            return new Dictionary<SensorStates, SensorStates[]>
     {
-        { SensorState.Uninitialized, new[] { SensorState.Initialized, SensorState.Error } },
-        { SensorState.Initialized, new[] { SensorState.Running, SensorState.Error } },
-        { SensorState.Running, new[] { SensorState.Initialized, SensorState.Stopped, SensorState.Error } },
-        { SensorState.Stopped, new[] { SensorState.Running, SensorState.Calibrating, SensorState.Error } },
-        { SensorState.Calibrating, new[] { SensorState.Initialized, SensorState.Error } },
-        { SensorState.Error, new[] { SensorState.Uninitialized, SensorState.Disconnected } },
-        { SensorState.Disconnected, new[] { SensorState.Uninitialized } }
+        { SensorStates.Uninitialized, new[] { SensorStates.Initialized, SensorStates.Error } },
+        { SensorStates.Initialized, new[] { SensorStates.Running, SensorStates.Error } },
+        { SensorStates.Running, new[] { SensorStates.Initialized, SensorStates.Stopped, SensorStates.Error } },
+        { SensorStates.Stopped, new[] { SensorStates.Running, SensorStates.Calibrating, SensorStates.Error } },
+        { SensorStates.Calibrating, new[] { SensorStates.Initialized, SensorStates.Error } },
+        { SensorStates.Error, new[] { SensorStates.Uninitialized, SensorStates.Disconnected } },
+        { SensorStates.Disconnected, new[] { SensorStates.Uninitialized } }
     };
         }
 

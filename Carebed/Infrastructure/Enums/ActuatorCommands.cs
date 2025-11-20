@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Carebed.Infrastructure.Enums
 {
-    public enum ActuatorCommand
+    public enum ActuatorCommands
     {
         /// <summary>
         /// Instructs the actuator to begin upward or forward motion.

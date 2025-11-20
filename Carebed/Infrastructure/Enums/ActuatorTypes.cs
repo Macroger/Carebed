@@ -9,7 +9,7 @@ namespace Carebed.Infrastructure.Enums
     /// <summary>
     /// A list of actuator types used in the care bed system.
     /// </summary>
-    public enum ActuatorType
+    public enum ActuatorTypes
     {
         BedLift,       // Controls vertical elevation of the bed frame
         HeadTilt,      // Adjusts the angle of the head section

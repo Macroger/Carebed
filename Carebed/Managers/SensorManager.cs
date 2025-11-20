@@ -141,7 +141,7 @@ namespace Carebed.Managers
                     try
                     {
                         var payload = sensor.ReadData();
-                        var envelope = new MessageEnvelope<SensorData>(payload, MessageOrigin.SensorManager, MessageType.SensorData);
+                        var envelope = new MessageEnvelope<SensorData>(payload, MessageOrigins.SensorManager, MessageTypes.SensorData);
                         publishTasks.Add(_eventBus.PublishAsync(envelope));
                     }
                     catch (Exception exSensor)

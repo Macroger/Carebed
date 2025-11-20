@@ -8,7 +8,7 @@ namespace Carebed.Infrastructure.Message.ActuatorMessages
         /// <summary>
         /// Represents the type of command that was acknowledged.
         /// </summary>
-        public required ActuatorCommand CommandType { get; set; }
+        public required ActuatorCommands CommandType { get; set; }
 
         /// <summary>
         /// Represents whether the actuator can execute the given command.

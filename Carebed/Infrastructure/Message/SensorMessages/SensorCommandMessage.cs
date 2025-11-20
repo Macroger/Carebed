@@ -1,21 +1,19 @@
-﻿using Carebed.Infrastructure.Message.Actuator;
-using Carebed.Infrastructure.Enums;
+﻿using Carebed.Infrastructure.Enums;
 
-namespace Carebed.Infrastructure.Message.ActuatorMessages
+namespace Carebed.Infrastructure.Message.SensorMessages
 {
-    public class ActuatorCommandMessage : ActuatorMessageBase
+    public class SensorCommandMessage
     {
         /// <summary>
         /// The type of command to execute (e.g., Raise, Lower, Stop).
         /// Defined as an enum for clarity and safety.
         /// </summary>
-        public required ActuatorCommands CommandType { get; set; }
+        public required SensorCommands CommandType { get; set; }
 
         /// <summary>
         /// Optional parameters for the command (e.g., target angle, duration).
         /// Can be empty for simple commands.
         /// </summary>
         public Dictionary<string, object>? Parameters { get; set; } = new();
-
     }
 }

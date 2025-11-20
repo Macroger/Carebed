@@ -12,7 +12,7 @@ namespace Carebed.Infrastructure.Message.SensorMessages
         /// <summary>
         /// The type of sensor (e.g., Temperature, Pressure, HeartRate).
         /// </summary>
-        public required SensorType TypeOfSensor { get; set; }
+        public required SensorTypes TypeOfSensor { get; set; }
 
         /// <summary>
         /// Timestamp of when the message was created.

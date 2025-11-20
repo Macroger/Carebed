@@ -12,7 +12,7 @@ namespace Carebed.Infrastructure.Message
         /// <summary>
         /// Represents the type of message, which is always Alert for this class.
         /// </summary>
-        public MessageType MessageType { get; } = MessageType.Alert;
+        public MessageTypes MessageType { get; } = MessageTypes.Alert;
 
         /// <summary>
         /// Represents the alert text or description.

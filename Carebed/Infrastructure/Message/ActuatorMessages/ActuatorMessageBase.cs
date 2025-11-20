@@ -12,7 +12,7 @@ namespace Carebed.Infrastructure.Message.Actuator
         /// <summary>
         /// The type of actuator (e.g., BedLift, HeadTilt).
         /// </summary>
-        public required ActuatorType TypeOfActuator { get; set; }
+        public required ActuatorTypes TypeOfActuator { get; set; }
 
         /// <summary>
         /// Timestamp of when the message was created.

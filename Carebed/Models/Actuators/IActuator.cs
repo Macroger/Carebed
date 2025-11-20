@@ -15,25 +15,25 @@ namespace Carebed.Models.Actuators
         /// The type of actuator, represented as an enum (e.g., BedLift, HeadTilt, LegRaise).
         /// Enables classification and filtering.
         /// </summary>
-        ActuatorType Type { get; }
+        ActuatorTypes Type { get; }
 
         /// <summary>
         /// The current state of the actuator (e.g., Idle, Moving, Locked, Error).
         /// Backed by an internal state machine to enforce valid transitions.
         /// </summary>
-        ActuatorState CurrentState { get; }
+        ActuatorStates CurrentState { get; }
 
         /// <summary>
         /// Attempts to execute a command on the actuator.
         /// Returns true if the command is accepted and initiated, false if rejected (e.g., due to invalid state).
         /// </summary>
-        bool TryExecute(ActuatorCommand command);
+        bool TryExecute(ActuatorCommands command);
 
         /// <summary>
         /// Event triggered when the actuator transitions to a new state.
         /// Useful for emitting status messages or updating the UI.
         /// </summary>
-        event Action<ActuatorState> OnStateChanged;
+        event Action<ActuatorStates> OnStateChanged;
 
         /// <summary>
         /// Returns telemetry data specific to this actuator (e.g., position, load, temperature).

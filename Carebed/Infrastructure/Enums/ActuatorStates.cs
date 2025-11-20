@@ -1,7 +1,7 @@
 ﻿
 namespace Carebed.Infrastructure.Enums
 {
-    public enum ActuatorState
+    public enum ActuatorStates
     {
         Idle,           // The actuator is not currently moving or engaged
         Moving,         // The actuator is in the process of moving

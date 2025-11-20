@@ -9,7 +9,7 @@ namespace Carebed.Infrastructure.Enums
     /// <summary>
     /// Describes the various states a sensor can be in.
     /// </summary>
-    public enum SensorState
+    public enum SensorStates
     {
         Uninitialized,  // Default state before any initialization
         Initialized,    // Sensor has been initialized but not yet active

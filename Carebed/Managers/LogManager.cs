@@ -25,15 +25,15 @@ namespace Carebed.Managers
             {
                 Timestamp = DateTimeOffset.UtcNow,
                 Level = level,
-                Origin = MessageOrigin.SensorManager,
-                Type = MessageType.SensorData,
+                Origin = MessageOrigins.SensorManager,
+                Type = MessageTypes.SensorData,
                 Message = message,
                 PayloadJson = SerializePayload(payload)
             };
             _logger.Log(lm);
         }
 
-        public void Log(MessageOrigin origin, MessageType type, string message, object? payload = null, LogLevelEnum level = LogLevelEnum.Info)
+        public void Log(MessageOrigins origin, MessageTypes type, string message, object? payload = null, LogLevelEnum level = LogLevelEnum.Info)
         {
             var lm = new LogMessage
             {

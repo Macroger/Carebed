@@ -13,37 +13,37 @@ namespace Carebed.Models.Actuators
         /// <summary>
         /// Gets the type of the actuator.
         /// </summary>
-        public ActuatorType Type { get; }
+        public ActuatorTypes Type { get; }
 
         /// <summary>
         /// Gets the current state of the actuator.
         /// </summary>
-        public ActuatorState CurrentState => _stateMachine.Current;
+        public ActuatorStates CurrentState => _stateMachine.Current;
 
         /// <summary>
         /// A state machine to manage the actuator's states and transitions.
         /// </summary>
-        protected readonly StateMachine<ActuatorState> _stateMachine;
+        protected readonly StateMachine<ActuatorStates> _stateMachine;
 
         /// <summary>
         /// Event triggered when the actuator transitions to a new state.
         /// </summary>
-        public event Action<ActuatorState>? OnStateChanged;
+        public event Action<ActuatorStates>? OnStateChanged;
 
         /// <summary>
         /// Constructor for the ActuatorBase class.
         /// </summary>
-        protected ActuatorBase(string actuatorId, ActuatorType type, Dictionary<ActuatorState, ActuatorState[]> transitionMap)
+        protected ActuatorBase(string actuatorId, ActuatorTypes type, Dictionary<ActuatorStates, ActuatorStates[]> transitionMap)
         {
             ActuatorId = actuatorId;
             Type = type;
-            _stateMachine = new StateMachine<ActuatorState>(ActuatorState.Idle, transitionMap);
+            _stateMachine = new StateMachine<ActuatorStates>(ActuatorStates.Idle, transitionMap);
         }
 
         /// <summary>
         /// A method to attempt a state transition in the actuator's state machine.
         /// </summary>
-        public bool TryTransition(ActuatorState next)
+        public bool TryTransition(ActuatorStates next)
         {
             if (_stateMachine.TryTransition(next))
             {
@@ -59,9 +59,9 @@ namespace Carebed.Models.Actuators
         /// <remarks>
         /// **Must be implemented by derived classes.**
         /// </remarks>
-        /// <param name="command">The <see cref="ActuatorCommand"/> to be executed. Cannot be <see langword="null"/>.</param>
+        /// <param name="command">The <see cref="ActuatorCommands"/> to be executed. Cannot be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if the command was successfully executed; otherwise, <see langword="false"/>.</returns>
-        public abstract bool TryExecute(ActuatorCommand command);
+        public abstract bool TryExecute(ActuatorCommands command);
 
         /// <summary>
         /// Abstract method to get telemetry data specific to this actuator.</summary>
@@ -75,7 +75,7 @@ namespace Carebed.Models.Actuators
         /// </summary>
         public virtual void Reset()
         {
-            TryTransition(ActuatorState.Idle);
+            TryTransition(ActuatorStates.Idle);
         }
     }
 }

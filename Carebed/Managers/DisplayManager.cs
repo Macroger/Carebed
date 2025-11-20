@@ -28,8 +28,8 @@ namespace Carebed.Managers
             // TODO: update the UI here (this method is the hook point).
             // Log the payload using the project LoggingManager singleton.
             LoggingManager.Instance.Log(
-                MessageOrigin.DisplayManager,
-                MessageType.System,
+                MessageOrigins.DisplayManager,
+                MessageTypes.System,
                 "Display updated",
                 patientDto,
                 Infrastructure.Enums.LogLevelEnum.Info

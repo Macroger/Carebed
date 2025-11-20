@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Carebed.Infrastructure.Enums
 {
-    public enum SensorType
+    public enum SensorTypes
     {
         Temperature,
         Humidity,
