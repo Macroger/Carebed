@@ -1,5 +1,6 @@
 ﻿using Carebed.Infrastructure.EventBus;
 using Carebed.Managers;
+using Carebed.UI;
 using Carebed.Models.Actuators;
 using Carebed.Models.Sensors;
 
