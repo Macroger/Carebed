@@ -80,7 +80,12 @@ namespace Carebed.Models.Sensors
         /// </summary>
         public virtual void Start()
         {
-            // Start internal timer, open hardware connection, etc.
+            if (CurrentState == SensorStates.Uninitialized)
+            {
+                // Start internal timer, open hardware connection, etc.
+                _stateMachine.TryTransition(SensorStates.Initialized);
+            }
+
             _stateMachine.TryTransition(SensorStates.Running);
         }
 
