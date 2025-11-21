@@ -4,13 +4,11 @@ using Carebed.Infrastructure.Logging;
 
 namespace Carebed.Managers
 {
-    internal sealed class LoggingManager : IDisposable
+    public class LoggingManager : IDisposable
     {
         private readonly ILoggingService _logger;
-        private static readonly Lazy<LoggingManager> _instance = new(() => new LoggingManager());
-        public static LoggingManager Instance => _instance.Value;
 
-        private LoggingManager()
+        public LoggingManager()
         {
             var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
             var filePath = System.IO.Path.Combine(logDir, "carebed.log");

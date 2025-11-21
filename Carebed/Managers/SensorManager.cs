@@ -5,6 +5,7 @@ using Carebed.Infrastructure.Message.SensorMessages;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Models.Actuators;
 using Carebed.Models.Sensors;
+using System;
 
 namespace Carebed.Managers
 {
@@ -18,7 +19,7 @@ namespace Carebed.Managers
         #region Fields and Properties
 
         private readonly IEventBus _eventBus;
-        private readonly List<ISensor> _sensors;
+        private readonly List<AbstractSensor> _sensors;
         private readonly System.Timers.Timer _timer;
         private int _isPolling;
 
@@ -43,10 +44,15 @@ namespace Carebed.Managers
         /// <param name="intervalMilliseconds">The interval, in milliseconds, at which the sensors are polled. Defaults to 1000 milliseconds.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="eventBus"/> is <see langword="null"/> or if <paramref name="sensorList"/> is <see
         /// langword="null"/>.</exception>
-        public SensorManager(IEventBus eventBus, List<ISensor> sensorList, double intervalMilliseconds = 1000)
+        public SensorManager(IEventBus eventBus, List<AbstractSensor> sensorList, double intervalMilliseconds = 1000)
         {
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
-            _sensors = sensorList ?? throw new ArgumentNullException(nameof(sensorList));
+            _sensors = new List<AbstractSensor>();
+
+            if(sensorList == null)
+            {
+                throw new ArgumentNullException(nameof(sensorList));
+            }                
 
             // Create a timer to poll sensors at the specified interval
             _timer = new System.Timers.Timer(intervalMilliseconds) { AutoReset = true };
@@ -61,15 +67,53 @@ namespace Carebed.Managers
                 Action<SensorStates> handler = state => HandleStateChanged(sensor, state);
                 _stateChangedHandlers[sensor] = handler;
                 sensor.OnStateChanged += handler;
-                _sensors.Add(sensor);            }
+                _sensors.Add(sensor);            
+            }
 
             // Emit initial inventory message
             EmitSensorInventoryMessage();
         }
 
-        private void HandleStateChanged(ISensor sensor, SensorStates state)
+        private void HandleStateChanged(AbstractSensor sensor, SensorStates state)
         {
-            throw new NotImplementedException();
+            if (state == SensorStates.Error)
+            {
+                // Publish an error message if the actuator enters the Error state
+                var errorMsg = new SensorErrorMessage
+                {
+                    SensorID = sensor.SensorID,
+                    TypeOfSensor = sensor.SensorType,
+                    CurrentState = state,
+                    ErrorCode = SensorErrorCodes.SensorMalfunction,
+                    Description = "Sensor encountered an error."
+                };
+
+                var errorEnvelope = new MessageEnvelope<SensorErrorMessage>(
+                    errorMsg,
+                    MessageOrigins.SensorManager,
+                    MessageTypes.SensorError
+                );
+
+                // Publish the error message asynchronously to the event bus
+                _ = _eventBus.PublishAsync(errorEnvelope);
+            }
+            else
+            {
+                var statusUpdate = new SensorStatusMessage
+                {
+                    SensorID = sensor.SensorID,
+                    TypeOfSensor = sensor.SensorType,
+                    CurrentState = sensor.CurrentState
+                };
+
+                var statusEnvelope = new MessageEnvelope<SensorStatusMessage>(
+                    statusUpdate,
+                    MessageOrigins.SensorManager,
+                    MessageTypes.SensorStatus
+                );
+
+                _ = _eventBus.PublishAsync(statusEnvelope);
+            }
         }
 
         /// <summary>

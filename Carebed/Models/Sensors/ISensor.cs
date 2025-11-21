@@ -17,11 +17,15 @@ namespace Carebed.Models.Sensors
 
         SensorTypes SensorType { get; init; }
 
+        //SensorStates CurrentState { get; set; }
+
         /// <summary>
         /// Event triggered when the sensor transitions to a new state.
         /// Useful for emitting status messages or updating the UI.
         /// </summary>
         event Action<SensorStates> OnStateChanged;
+
+
 
         /// <summary>
         /// Read a single snapshot of sensor data. This is called by the SensorManager every poll cycle.

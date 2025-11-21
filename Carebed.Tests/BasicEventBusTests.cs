@@ -9,36 +9,30 @@ namespace Carebed.Tests.EventBus
     public class BasicEventBusTests
     {
         [TestMethod]
-        public async Task PublishAsync_InvokesSubscribedHandler_WithEnvelope()
+        public async Task SubscribedHandler_ReceivesPublishedMessage()
         {
-            // Arrange
-
-            // Create event bus instance
-            var bus = new BasicEventBus();
-
-            // Create a TaskCompletionSource to observe asynchronous handler invocation
-            // This is used to wait for the handler to be called
-            var tcs = new TaskCompletionSource<MessageEnvelope<SensorData>>();
-
-     
-            // Setup (subscribe) the handler via a lambda that sets the TaskCompletionSource result when
-            // a SensorData message is received
-            bus.Subscribe<SensorData>(envelope =>
+            var eventBus = new BasicEventBus();
+            var received = false;
+            SensorData sensorData = new SensorData
             {
-                tcs.TrySetResult(envelope);
+                Value = 25.0,
+                Source = "sensor1",
+                SensorType = SensorTypes.HeartRate,
+                IsCritical = false
+            };
+
+            eventBus.Subscribe<SensorTelemetryMessage>(envelope =>
+            {
+                received = true;
+                Assert.AreEqual("sensor1", envelope.Payload.SensorID);
             });
 
-            // Create payload and envelope
-            var payload = new SensorData(42.5);
-            var envelope = new MessageEnvelope<SensorData>(payload, MessageOrigins.SensorManager, MessageTypes.SensorData);
+            var message = new SensorTelemetryMessage { SensorID = "sensor1", TypeOfSensor = SensorTypes.Temperature, Data = sensorData};
+            var envelope = new MessageEnvelope<SensorTelemetryMessage>(message, MessageOrigins.SensorManager, MessageTypes.SensorData);
 
-            // Publish and await completion
-            await bus.PublishAsync(envelope);
+            await eventBus.PublishAsync(envelope);
 
-            // Handler should have received the envelope (awaiting tcs ensures stable assertion even if handler runs async)
-            var received = await tcs.Task;
-            Assert.AreSame(envelope, received);
-            Assert.AreEqual(42.5, received.Payload.Value);
+            Assert.IsTrue(received);
         }
     }
 }

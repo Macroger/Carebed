@@ -13,7 +13,7 @@ namespace Carebed.Infrastructure
             var _eventBus = new BasicEventBus();
             
             // Create a list of simulated sensors
-            var sensors = new List<ISensor>
+            var sensors = new List<AbstractSensor>
             {
                 new TemperatureSensor("temp_sensor"),
                 new BloodOxygenSensor("blood_o2_sensor"),

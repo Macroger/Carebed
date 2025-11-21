@@ -19,7 +19,9 @@
         AlertAction,
         AlertClearAck,
         ActuatorInventory,
-        SensorInventory
+        SensorInventory,
+        SensorError,
+        SensorStatus
         // Add more as needed
     }
 

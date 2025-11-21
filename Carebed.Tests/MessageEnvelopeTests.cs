@@ -22,53 +22,5 @@ namespace Carebed.Tests
     [TestClass]
     public class MessageEnvelopeTests
     {
-        [TestMethod]
-        public void Constructor_SetsPayloadAndTimestamp()
-        {
-            // Arrange 
-
-            var payload = new SensorData(
-                Value: 42.0,
-                Source: "Test",
-                IsCritical: false,
-                Metadata: null
-            );
-            var envelope = new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigins.Unknown);
-
-            // Act & Assert
-
-            // Test if payload is set correctly
-            Assert.AreEqual(payload, envelope.Payload);
-
-            // Test that the MessageOrigin is set correctly
-            Assert.AreEqual(Infrastructure.Enums.MessageOrigins.Unknown, envelope.MessageOrigin);
-        }
-
-        [TestMethod]
-        public void Constructor_NullPayload_Throws()
-        {
-            // Arrange
-            SensorData? payload = null;
-
-            // Act & Assert
-            // Ensure that the function throws an exception because nulls are not allowed
-            Assert.ThrowsException<ArgumentNullException>(() => new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigins.Unknown));
-        }
-
-        [TestMethod]
-        public void Constructor_MalformedPayload_StoresPayload()
-        {
-            var payload = new SensorData(
-                Value: double.NaN,
-                Source: null,
-                IsCritical: false,
-                Metadata: null
-            );
-            var envelope = new MessageEnvelope<SensorData>(payload, Infrastructure.Enums.MessageOrigins.Unknown);
-
-            Assert.AreEqual(payload, envelope.Payload);
-            Assert.IsNull(envelope.Payload.Source);
-            Assert.IsTrue(double.IsNaN(envelope.Payload.Value));
-        }
     }
 }

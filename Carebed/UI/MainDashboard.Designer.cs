@@ -11,7 +11,7 @@ using System.Windows.Forms;
 
 namespace Carebed.UI
 {
-    partial class MainDashboard : Form 
+    public partial class MainDashboard : Form 
     {
         /// <summary>
         ///  Required designer variable.
