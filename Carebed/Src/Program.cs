@@ -19,13 +19,7 @@ namespace Carebed.src
             ApplicationConfiguration.Initialize();
 
             // I need a tuple to contain eventBus and a list of IManagers.
-            var (eventBus, managers) = SystemInitializer.Initialize();
-
-            // Start all managers.
-            foreach (var manager in managers)
-            {
-                manager.Start();
-            }
+            var (eventBus, managers, mainDashboard) = SystemInitializer.Initialize();
 
             // Optional: global exception hooks for UI/background threads
             Application.ThreadException += (s, e) =>
@@ -37,9 +31,6 @@ namespace Carebed.src
                 // TODO: log e.Exception
                 e.SetObserved();
             };
-
-            // Pass dependencies into the main form
-            using var mainDashboard = new MainDashboard(eventBus, managers.ElementAt(0));
 
             // When the form closes we can shutdown services
             mainDashboard.FormClosed += (s, e) => eventBus.Shutdown();

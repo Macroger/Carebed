@@ -1,5 +1,6 @@
 ﻿using Carebed.Infrastructure.Enums;
 using Carebed.Infrastructure.EventBus;
+using Carebed.Infrastructure.Message.ActuatorMessages;
 using Carebed.Infrastructure.Message.SensorMessages;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Managers;
@@ -17,11 +18,8 @@ namespace Carebed.UI
         /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// A reference to the event bus for publishing and subscribing to events.
-        /// </summary>
-        private readonly IEventBus _eventBus;
-
+       
+        #region Windows Forms Elements
         // start/stop sensors toggle button
         private System.Windows.Forms.Button toggleSensorsButton;
         private System.Windows.Forms.TextBox transportLogTextBox;
@@ -32,25 +30,41 @@ namespace Carebed.UI
         private System.Windows.Forms.NumericUpDown refreshIntervalUpDown;
         private System.Windows.Forms.Label refreshIntervalLabel;
         private System.Windows.Forms.Timer refreshTimer;
+        #endregion
+
+        #region Fields and Properties
+
+        /// <summary>
+        /// A reference to the event bus for publishing and subscribing to events.
+        /// </summary>
+        private readonly IEventBus _eventBus;
 
         // in-memory sensor history storage
         private readonly Dictionary<string, Dictionary<DateTime, SensorData>> _sensorHistory = new();
         private readonly object _historyLock = new();
 
-        // sensor manager
-        private IManager _sensorManager;
+        // in-memory actuator history storage
+        private readonly Dictionary<string, Dictionary<DateTime, ActuatorTelemetryMessage>> _actuatorHistory = new();
+        private readonly object _actuatorHistoryLock = new();
+
         private bool _sensorsRunning = false;
 
+        #endregion
+
+        #region Constructor(s)
         /// <summary>
         /// Constructor for MainDashboard that accepts an IEventBus instance.
         /// </summary>
-        public MainDashboard(IEventBus eventBus, IManager sensorManager)
+        public MainDashboard(IEventBus eventBus)
         {
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
-            _sensorManager = sensorManager ?? throw new ArgumentNullException(nameof(sensorManager));
 
             InitializeComponent();
         }
+
+        #endregion
+
+        #region Event Handlers
 
         /// <summary>
         /// A override for the OnLoad event to perform additional initialization.
@@ -123,6 +137,8 @@ namespace Carebed.UI
             });
         }
 
+        #endregion
+
         /// <summary>
         /// Helper to run an action on the UI thread.
         /// </summary>
@@ -145,7 +161,6 @@ namespace Carebed.UI
             // stop sensors if running
             try
             {
-                _sensorManager.Stop();
                 _sensorsRunning = false;
             }
             catch { }
@@ -287,14 +302,12 @@ namespace Carebed.UI
             {
                 if (_sensorsRunning)
                 {
-                    _sensorManager.Stop();
                     _sensorsRunning = false;
                     toggleSensorsButton.Text = "Start Sensors";
                     transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors stopped by user\r\n");
                 }
                 else
                 {
-                    _sensorManager.Start();
                     _sensorsRunning = true;
                     toggleSensorsButton.Text = "Stop Sensors";
                     transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors started by user\r\n");

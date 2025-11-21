@@ -2,7 +2,7 @@ namespace Carebed
 {
     public partial class MainDashboard : Form
     {
-        public MainDashboard()
+        public MainDashboard(Infrastructure.EventBus.BasicEventBus eventBus)
         {
             InitializeComponent();
         }

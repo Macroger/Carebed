@@ -7,7 +7,7 @@ namespace Carebed.Infrastructure
 {
     public static class SystemInitializer
     {
-        public static (BasicEventBus eventBus, List<IManager> managers) Initialize()
+        public static (BasicEventBus eventBus, List<IManager> managers, MainDashboard dashboard) Initialize()
         {
             var _eventBus = new BasicEventBus();
             
@@ -36,13 +36,16 @@ namespace Carebed.Infrastructure
                 actuatorManager
             };
 
+            // Instantiate the MainDashboard
+            var dashboard = new MainDashboard(_eventBus);
+
             // Start the managers
             foreach (var manager in managers)
             {
                 manager.Start();
             }
 
-            return (_eventBus, managers);
+            return (_eventBus, managers, dashboard);
         }
     }
 }
