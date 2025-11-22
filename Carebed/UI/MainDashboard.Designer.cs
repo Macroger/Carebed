@@ -5,6 +5,8 @@ using Carebed.Infrastructure.Message.SensorMessages;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Managers;
 using Carebed.Models.Sensors;
+using Carebed.Infrastructure.Message.AlertMessages;
+using Carebed.Infrastructure.Message.Actuator;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -22,6 +24,7 @@ namespace Carebed.UI
         #region Windows Forms Elements
         // start/stop sensors toggle button
         private System.Windows.Forms.Button toggleSensorsButton;
+        private System.Windows.Forms.Label sensorStatusLabel;
         private System.Windows.Forms.TextBox transportLogTextBox;
 
         // new UI controls for sensors overview and history
@@ -39,6 +42,10 @@ namespace Carebed.UI
         /// </summary>
         private readonly IEventBus _eventBus;
 
+        // sensor manager reference controlled by the UI
+        private readonly SensorManager _sensorManager;
+        private readonly AlertManager _alertManager;
+
         // in-memory sensor history storage
         private readonly Dictionary<string, Dictionary<DateTime, SensorData>> _sensorHistory = new();
         private readonly object _historyLock = new();
@@ -49,15 +56,31 @@ namespace Carebed.UI
 
         private bool _sensorsRunning = false;
 
+        // concrete alert handlers so we subscribe/unsubscribe to the exact message types published by AlertManager
+        private Action<MessageEnvelope<AlertActionMessage<SensorTelemetryMessage>>>? _alertHandlerSensorTelemetry;
+        private Action<MessageEnvelope<AlertActionMessage<SensorStatusMessage>>>? _alertHandlerSensorStatus;
+        private Action<MessageEnvelope<AlertActionMessage<SensorErrorMessage>>>? _alertHandlerSensorError;
+
+        private Action<MessageEnvelope<AlertActionMessage<ActuatorTelemetryMessage>>>? _alertHandlerActuatorTelemetry;
+        private Action<MessageEnvelope<AlertActionMessage<ActuatorStatusMessage>>>? _alertHandlerActuatorStatus;
+        private Action<MessageEnvelope<AlertActionMessage<ActuatorErrorMessage>>>? _alertHandlerActuatorError;
+
+        // aggregator for alerts
+        private readonly List<AlertEntry> _pendingAlerts = new();
+        private readonly object _alertsLock = new();
+        private bool _isShowingAlertDialog = false;
+
         #endregion
 
         #region Constructor(s)
         /// <summary>
-        /// Constructor for MainDashboard that accepts an IEventBus instance.
+        /// Constructor for MainDashboard that accepts an IEventBus instance, a SensorManager and an AlertManager.
         /// </summary>
-        public MainDashboard(IEventBus eventBus)
+        internal MainDashboard(IEventBus eventBus, SensorManager sensorManager, AlertManager alertManager)
         {
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
+            _sensorManager = sensorManager ?? throw new ArgumentNullException(nameof(sensorManager));
+            _alertManager = alertManager ?? throw new ArgumentNullException(nameof(alertManager));
 
             InitializeComponent();
         }
@@ -75,6 +98,100 @@ namespace Carebed.UI
         {
             base.OnLoad(e);
             _eventBus.Subscribe<SensorTelemetryMessage>(HandleSensorData);
+
+            // subscribe to alert action messages for concrete payload types
+            _alertHandlerSensorTelemetry = env =>
+            {
+                var msg = env.Payload;
+                if (msg == null) return;
+                var entry = new AlertEntry
+                {
+                    Source = msg.Source,
+                    AlertText = msg.AlertText,
+                    Payload = msg.Payload,
+                    IsCritical = msg.Payload?.IsCritical ?? false
+                };
+                EnqueueAndShowAlerts(entry);
+            };
+
+            _alertHandlerSensorStatus = env =>
+            {
+                var msg = env.Payload;
+                if (msg == null) return;
+                var entry = new AlertEntry
+                {
+                    Source = msg.Source,
+                    AlertText = msg.AlertText,
+                    Payload = msg.Payload,
+                    IsCritical = msg.Payload?.IsCritical ?? false
+                };
+                EnqueueAndShowAlerts(entry);
+            };
+
+            _alertHandlerSensorError = env =>
+            {
+                var msg = env.Payload;
+                if (msg == null) return;
+                var entry = new AlertEntry
+                {
+                    Source = msg.Source,
+                    AlertText = msg.AlertText,
+                    Payload = msg.Payload,
+                    IsCritical = msg.Payload?.IsCritical ?? true
+                };
+                EnqueueAndShowAlerts(entry);
+            };
+
+            _alertHandlerActuatorTelemetry = env =>
+            {
+                var msg = env.Payload;
+                if (msg == null) return;
+                var entry = new AlertEntry
+                {
+                    Source = msg.Source,
+                    AlertText = msg.AlertText,
+                    Payload = msg.Payload,
+                    IsCritical = msg.Payload?.IsCritical ?? false
+                };
+                EnqueueAndShowAlerts(entry);
+            };
+
+            _alertHandlerActuatorStatus = env =>
+            {
+                var msg = env.Payload;
+                if (msg == null) return;
+                var entry = new AlertEntry
+                {
+                    Source = msg.Source,
+                    AlertText = msg.AlertText,
+                    Payload = msg.Payload,
+                    IsCritical = msg.Payload?.IsCritical ?? false
+                };
+                EnqueueAndShowAlerts(entry);
+            };
+
+            _alertHandlerActuatorError = env =>
+            {
+                var msg = env.Payload;
+                if (msg == null) return;
+                var entry = new AlertEntry
+                {
+                    Source = msg.Source,
+                    AlertText = msg.AlertText,
+                    Payload = msg.Payload,
+                    IsCritical = msg.Payload?.IsCritical ?? true
+                };
+                EnqueueAndShowAlerts(entry);
+            };
+
+            // register them
+            _eventBus.Subscribe(_alertHandlerSensorTelemetry);
+            _eventBus.Subscribe(_alertHandlerSensorStatus);
+            _eventBus.Subscribe(_alertHandlerSensorError);
+
+            _eventBus.Subscribe(_alertHandlerActuatorTelemetry);
+            _eventBus.Subscribe(_alertHandlerActuatorStatus);
+            _eventBus.Subscribe(_alertHandlerActuatorError);
 
             // Do NOT start the sensor manager automatically. User must press Start.
             // _sensorManager.Start(); // removed to prevent automatic sensor start
@@ -162,6 +279,7 @@ namespace Carebed.UI
             try
             {
                 _sensorsRunning = false;
+                _sensorManager.Stop();
             }
             catch { }
 
@@ -174,6 +292,15 @@ namespace Carebed.UI
             catch { }
 
             _eventBus.Unsubscribe<SensorTelemetryMessage>(HandleSensorData);
+
+            if (_alertHandlerSensorTelemetry != null) _eventBus.Unsubscribe(_alertHandlerSensorTelemetry);
+            if (_alertHandlerSensorStatus != null) _eventBus.Unsubscribe(_alertHandlerSensorStatus);
+            if (_alertHandlerSensorError != null) _eventBus.Unsubscribe(_alertHandlerSensorError);
+
+            if (_alertHandlerActuatorTelemetry != null) _eventBus.Unsubscribe(_alertHandlerActuatorTelemetry);
+            if (_alertHandlerActuatorStatus != null) _eventBus.Unsubscribe(_alertHandlerActuatorStatus);
+            if (_alertHandlerActuatorError != null) _eventBus.Unsubscribe(_alertHandlerActuatorError);
+
             base.OnFormClosed(e);
         }
 
@@ -208,6 +335,15 @@ namespace Carebed.UI
             this.toggleSensorsButton.Location = new System.Drawing.Point(12, 12);
             this.toggleSensorsButton.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
             this.toggleSensorsButton.Click += toggleSensorsButton_Click;
+
+            // sensorStatusLabel - shows the status of the sensors (running/stopped)
+            this.sensorStatusLabel = new System.Windows.Forms.Label();
+            this.sensorStatusLabel.Name = "sensorStatusLabel";
+            this.sensorStatusLabel.Text = "Sensors stopped";
+            this.sensorStatusLabel.AutoSize = true;
+            this.sensorStatusLabel.Location = new System.Drawing.Point(160, 17);
+            this.sensorStatusLabel.ForeColor = System.Drawing.Color.Red;
+            this.sensorStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
 
             // transportLogTextBox - multi-line text box to show send/receive traces
             this.transportLogTextBox = new System.Windows.Forms.TextBox();
@@ -284,6 +420,7 @@ namespace Carebed.UI
 
             // Add controls to the form
             this.Controls.Add(this.toggleSensorsButton);
+            this.Controls.Add(this.sensorStatusLabel);
             this.Controls.Add(this.transportLogTextBox);
             this.Controls.Add(this.sensorsListView);
             this.Controls.Add(this.historyGridView);
@@ -303,13 +440,21 @@ namespace Carebed.UI
                 if (_sensorsRunning)
                 {
                     _sensorsRunning = false;
+                    _sensorManager.Stop();
+                    _alertManager.Stop(); // stop alert manager
                     toggleSensorsButton.Text = "Start Sensors";
+                    sensorStatusLabel.Text = "Sensors stopped";
+                    sensorStatusLabel.ForeColor = System.Drawing.Color.Red;
                     transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors stopped by user\r\n");
                 }
                 else
                 {
                     _sensorsRunning = true;
+                    _sensorManager.Start();
+                    _alertManager.Start(); // start alert manager
                     toggleSensorsButton.Text = "Stop Sensors";
+                    sensorStatusLabel.Text = "Sensors running";
+                    sensorStatusLabel.ForeColor = System.Drawing.Color.Green;
                     transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors started by user\r\n");
                 }
             }
@@ -420,6 +565,90 @@ namespace Carebed.UI
             if (sensorsListView.SelectedItems.Count == 0) return;
             var key = sensorsListView.SelectedItems[0].Text;
             UpdateHistoryGrid(key);
+        }
+
+        /// <summary>
+        /// Handle AlertActionMessage for sensor payloads - show popup.
+        /// </summary>
+        private void HandleAlertActionForSensor(MessageEnvelope<AlertActionMessage<SensorMessageBase>> envelope)
+        {
+            var msg = envelope.Payload;
+            if (msg == null) return;
+
+            var entry = new AlertEntry
+            {
+                Source = msg.Source,
+                AlertText = msg.AlertText,
+                Payload = msg.Payload,
+                IsCritical = msg.Payload?.IsCritical ?? false
+            };
+
+            EnqueueAndShowAlerts(entry);
+        }
+
+        /// <summary>
+        /// Handle AlertActionMessage for actuator payloads - show popup.
+        /// </summary>
+        private void HandleAlertActionForActuator(MessageEnvelope<AlertActionMessage<ActuatorMessageBase>> envelope)
+        {
+            var msg = envelope.Payload;
+            if (msg == null) return;
+
+            var entry = new AlertEntry
+            {
+                Source = msg.Source,
+                AlertText = msg.AlertText,
+                Payload = msg.Payload,
+                IsCritical = msg.Payload?.IsCritical ?? false
+            };
+
+            EnqueueAndShowAlerts(entry);
+        }
+
+        private void EnqueueAndShowAlerts(AlertEntry entry)
+        {
+            lock (_alertsLock)
+            {
+                _pendingAlerts.Add(entry);
+
+                if (_isShowingAlertDialog)
+                {
+                    // dialog already showing; it will be closed by user acknowledging; we just return
+                    return;
+                }
+
+                _isShowingAlertDialog = true;
+            }
+
+            RunOnUiThread(() =>
+            {
+                try
+                {
+                    List<AlertEntry> toShow;
+                    lock (_alertsLock)
+                    {
+                        toShow = new List<AlertEntry>(_pendingAlerts);
+                        _pendingAlerts.Clear();
+                    }
+
+                    using (var popup = new AlertPopup(_eventBus, toShow))
+                    {
+                        // show modal to the main window
+                        popup.ShowDialog(this);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to show alert popup: {ex}");
+                }
+                finally
+                {
+                    lock (_alertsLock)
+                    {
+                        _isShowingAlertDialog = false;
+                    }
+                }
+            });
         }
     }
 }

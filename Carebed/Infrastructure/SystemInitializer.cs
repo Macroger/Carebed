@@ -31,20 +31,22 @@ namespace Carebed.Infrastructure
             var sensorManager = new SensorManager(_eventBus, sensors);
             var actuatorManager = new ActuatorManager(_eventBus, actuators);
 
+            // Create AlertManager but do not start it until sensors are started by the UI
+            var alertManager = new AlertManager(_eventBus);
+
             var managers = new List<IManager>
             {
                 sensorManager,
-                actuatorManager
+                actuatorManager,
+                alertManager
             };
 
-            // Instantiate the MainDashboard
-            var dashboard = new MainDashboard(_eventBus);
+            // Instantiate the MainDashboard, pass sensorManager and alertManager so UI controls their lifecycles
+            var dashboard = new MainDashboard(_eventBus, sensorManager, alertManager);
 
-            // Start the managers
-            foreach (var manager in managers)
-            {
-                manager.Start();
-            }
+            // Start non-sensor managers (defer starting sensors and alert manager to the UI)
+            actuatorManager.Start();
+            // alertManager.Start() deferred until sensors are started by the UI
 
             return (_eventBus, managers, dashboard);
         }
