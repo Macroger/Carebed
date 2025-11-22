@@ -19,7 +19,8 @@ namespace Carebed.Models.Sensors
 
         public override SensorData ReadDataActual()
         {
-            var value = Random.Shared.Next((Int32)_min, (Int32)_max + 1);
+            var raw = Random.Shared.Next((Int32)_min, (Int32)_max + 1);
+            double value = raw; // keep integer heart rate as double without rounding ambiguity
             var isCritical = value < _lowCritical || value > _criticalThreshold;
             var meta = BuildMetadata(("Unit", "bpm"), ("Sensor", "HeartRate"));
             System.Guid correlationId = Guid.NewGuid();
@@ -28,7 +29,7 @@ namespace Carebed.Models.Sensors
                 Value = value,
                 Source = SensorID,
                 SensorType = this.SensorType,
-                IsCritical = (value < _criticalThreshold),
+                IsCritical = isCritical,
                 CreatedAt = DateTime.UtcNow,
                 CorrelationId = correlationId,
                 Metadata = meta

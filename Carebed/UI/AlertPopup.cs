@@ -3,6 +3,7 @@ using Carebed.Infrastructure.Message.AlertMessages;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Infrastructure.Message;
 using System.Windows.Forms;
+using System.Drawing;
 
 namespace Carebed.UI
 {
@@ -44,10 +45,13 @@ namespace Carebed.UI
             alertsListBox.Size = new System.Drawing.Size(460, 200);
             alertsListBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
+            // Use owner-draw so we can color critical alerts red
+            alertsListBox.DrawMode = DrawMode.OwnerDrawFixed;
+            alertsListBox.DrawItem += AlertsListBox_DrawItem;
+
             foreach (var a in _alerts)
             {
-                var prefix = a.IsCritical ? "[CRITICAL] " : string.Empty;
-                alertsListBox.Items.Add($"{prefix}{a.Source}: {a.AlertText}");
+                alertsListBox.Items.Add(a);
             }
 
             closeButton = new Button();
@@ -59,6 +63,31 @@ namespace Carebed.UI
 
             this.Controls.Add(alertsListBox);
             this.Controls.Add(closeButton);
+        }
+
+        private void AlertsListBox_DrawItem(object? sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0) return;
+
+            e.DrawBackground();
+
+            var item = alertsListBox.Items[e.Index] as AlertEntry;
+            if (item == null)
+            {
+                e.DrawFocusRectangle();
+                return;
+            }
+
+            var prefix = item.IsCritical ? "[CRITICAL] " : string.Empty;
+            var text = $"{prefix}[{item.Source}] {item.AlertText}";
+            var color = item.IsCritical ? Color.Red : SystemColors.WindowText;
+
+            using (var brush = new SolidBrush(color))
+            {
+                e.Graphics.DrawString(text, e.Font, brush, e.Bounds.X, e.Bounds.Y);
+            }
+
+            e.DrawFocusRectangle();
         }
 
         private void AlertPopup_FormClosed(object? sender, FormClosedEventArgs e)

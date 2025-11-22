@@ -14,7 +14,8 @@ namespace Carebed.Models.Sensors
 
         public override SensorData ReadDataActual()
         {
-            var value = Random.Shared.NextDouble() * (_max - _min) + _min;
+            var raw = Random.Shared.NextDouble() * (_max - _min) + _min;
+            var value = Math.Round(raw, 2);
             var meta = BuildMetadata(("Unit", "°C"), ("Sensor", "Temperature"));           
             System.Guid correlationId = Guid.NewGuid();
             return new SensorData
@@ -22,7 +23,8 @@ namespace Carebed.Models.Sensors
                 Value = value,
                 Source = SensorID,
                 SensorType = this.SensorType,
-                IsCritical = (value < _criticalThreshold),
+                // temperature is critical when it exceeds the high threshold
+                IsCritical = (value > _criticalThreshold),
                 CreatedAt = DateTime.UtcNow,
                 CorrelationId = correlationId,
                 Metadata = meta

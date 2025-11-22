@@ -15,7 +15,8 @@ namespace Carebed.Models.Sensors
 
         public override SensorData ReadDataActual()
         {
-            double value = Random.Shared.NextDouble() * (_max - _min) + _min;
+            double raw = Random.Shared.NextDouble() * (_max - _min) + _min;
+            var value = Math.Round(raw, 2);
             var meta = BuildMetadata(("Unit", "%"), ("Sensor", "SpO2"));
             System.Guid correlationId = Guid.NewGuid();
             

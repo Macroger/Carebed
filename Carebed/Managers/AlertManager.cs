@@ -114,7 +114,7 @@ namespace Carebed.Managers
             var alertAction = new AlertActionMessage<T>
             {
                 Source = sensorId,
-                AlertText = payload is SensorErrorMessage err ? err.Description : (payload is SensorTelemetryMessage tel ? $"Critical telemetry: {tel.Data?.Value}" : "Sensor alert"),
+                AlertText = payload is SensorErrorMessage err ? err.Description : (payload is SensorTelemetryMessage tel ? $"Critical telemetry: {tel.Data?.Value:F2}" : "Sensor alert"),
                 Payload = payload
             };
 
