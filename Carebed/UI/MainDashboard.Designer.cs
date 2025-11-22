@@ -87,7 +87,7 @@ namespace Carebed.UI
 
         private void InitializeAlertBanner()
         {
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
 
         #endregion
@@ -552,8 +552,13 @@ namespace Carebed.UI
         private void HandleAlertActionForSensor<TPayload>(MessageEnvelope<AlertActionMessage<TPayload>> envelope)
            where TPayload : SensorMessageBase
         {
+            AlertViewModel avm = new AlertViewModel
+            {
+                Text = envelope.Payload.AlertText,
+                isCritical = envelope.Payload.Payload?.IsCritical ?? false
+            };
 
-            ShowAlert
+            ShowAlert(avm);
 
             var msg = envelope.Payload;
             if (msg == null) return;
