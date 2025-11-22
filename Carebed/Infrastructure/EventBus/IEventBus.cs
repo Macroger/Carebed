@@ -9,6 +9,11 @@ namespace Carebed.Infrastructure.EventBus
     /// </summary>
     public interface IEventBus
     {
+        // Subscribe to all published messages (global notification)
+        void SubscribeToGlobalMessages(Action<IMessageEnvelope> handler);
+
+        void UnsubscribeFromGlobalMessages(Action<IMessageEnvelope> handler);
+
         /// <summary>
         /// Subscribes a handler to a specific event type.
         /// </summary>
