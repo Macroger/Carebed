@@ -10,6 +10,7 @@ using Carebed.Infrastructure.Message.Actuator;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
+using Carebed.Infrastructure.Message.UI;
 
 namespace Carebed.UI
 {
@@ -42,9 +43,8 @@ namespace Carebed.UI
         /// </summary>
         private readonly IEventBus _eventBus;
 
-        // sensor manager reference controlled by the UI
-        private readonly SensorManager _sensorManager;
-        private readonly AlertManager _alertManager;
+        private BindingSource alertBindingSource = new BindingSource();
+
 
         // in-memory sensor history storage
         private readonly Dictionary<string, Dictionary<DateTime, SensorData>> _sensorHistory = new();
@@ -54,7 +54,7 @@ namespace Carebed.UI
         private readonly Dictionary<string, Dictionary<DateTime, ActuatorTelemetryMessage>> _actuatorHistory = new();
         private readonly object _actuatorHistoryLock = new();
 
-        private bool _sensorsRunning = false;
+        //private bool _sensorsRunning = false;
 
         // concrete alert handlers so we subscribe/unsubscribe to the exact message types published by AlertManager
         private Action<MessageEnvelope<AlertActionMessage<SensorTelemetryMessage>>>? _alertHandlerSensorTelemetry;
@@ -65,24 +65,29 @@ namespace Carebed.UI
         private Action<MessageEnvelope<AlertActionMessage<ActuatorStatusMessage>>>? _alertHandlerActuatorStatus;
         private Action<MessageEnvelope<AlertActionMessage<ActuatorErrorMessage>>>? _alertHandlerActuatorError;
 
+
         // aggregator for alerts
-        private readonly List<AlertEntry> _pendingAlerts = new();
-        private readonly object _alertsLock = new();
-        private bool _isShowingAlertDialog = false;
+        //private readonly List<AlertEntry> _pendingAlerts = new();
+        //private readonly object _alertsLock = new();
+        //private bool _isShowingAlertDialog = false;
 
         #endregion
 
         #region Constructor(s)
         /// <summary>
-        /// Constructor for MainDashboard that accepts an IEventBus instance, a SensorManager and an AlertManager.
+        /// Constructor for MainDashboard that accepts an IEventBus instance.
         /// </summary>
-        internal MainDashboard(IEventBus eventBus, SensorManager sensorManager, AlertManager alertManager)
+        internal MainDashboard(IEventBus eventBus)
         {
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
-            _sensorManager = sensorManager ?? throw new ArgumentNullException(nameof(sensorManager));
-            _alertManager = alertManager ?? throw new ArgumentNullException(nameof(alertManager));
 
             InitializeComponent();
+            InitializeAlertBanner();  
+        }
+
+        private void InitializeAlertBanner()
+        {
+            throw new NotImplementedException();
         }
 
         #endregion
@@ -97,92 +102,53 @@ namespace Carebed.UI
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            _eventBus.Subscribe<SensorTelemetryMessage>(HandleSensorData);
 
-            // subscribe to alert action messages for concrete payload types
-            _alertHandlerSensorTelemetry = env =>
-            {
-                var msg = env.Payload;
-                if (msg == null) return;
-                var entry = new AlertEntry
-                {
-                    Source = msg.Source,
-                    AlertText = msg.AlertText,
-                    Payload = msg.Payload,
-                    IsCritical = msg.Payload?.IsCritical ?? false
-                };
-                EnqueueAndShowAlerts(entry);
-            };
+            // Create the Alerts panel
+            Panel alertBanner = new Panel();
+            alertBanner.Name = "AlertBanner";
+            alertBanner.Height = 50; // fixed height for banner
+            alertBanner.Dock = DockStyle.Top;
+            alertBanner.BackColor = Color.LightYellow; // placeholder color
 
-            _alertHandlerSensorStatus = env =>
-            {
-                var msg = env.Payload;
-                if (msg == null) return;
-                var entry = new AlertEntry
-                {
-                    Source = msg.Source,
-                    AlertText = msg.AlertText,
-                    Payload = msg.Payload,
-                    IsCritical = msg.Payload?.IsCritical ?? false
-                };
-                EnqueueAndShowAlerts(entry);
-            };
+            // Icon (e.g., warning triangle)
+            PictureBox alertIcon = new PictureBox();
+            alertIcon.Name = "AlertIcon";
+            alertIcon.Size = new Size(40, 40);
+            alertIcon.Location = new Point(10, 5);
+            alertIcon.SizeMode = PictureBoxSizeMode.StretchImage;
+            
+            // Placeholder icon — you can replace with an actual image resource
+            alertIcon.Image = SystemIcons.Warning.ToBitmap();
 
-            _alertHandlerSensorError = env =>
-            {
-                var msg = env.Payload;
-                if (msg == null) return;
-                var entry = new AlertEntry
-                {
-                    Source = msg.Source,
-                    AlertText = msg.AlertText,
-                    Payload = msg.Payload,
-                    IsCritical = msg.Payload?.IsCritical ?? true
-                };
-                EnqueueAndShowAlerts(entry);
-            };
+            // Add a label for alert text
+            Label alertLabel = new Label();
+            alertLabel.Name = "AlertLabel";
+            alertLabel.Text = "No active alerts";
+            alertLabel.AutoSize = false;
+            alertLabel.Dock = DockStyle.Fill;
+            alertLabel.TextAlign = ContentAlignment.MiddleCenter;
+            alertLabel.Font = new Font("Segoe UI", 12, FontStyle.Bold);
 
-            _alertHandlerActuatorTelemetry = env =>
-            {
-                var msg = env.Payload;
-                if (msg == null) return;
-                var entry = new AlertEntry
-                {
-                    Source = msg.Source,
-                    AlertText = msg.AlertText,
-                    Payload = msg.Payload,
-                    IsCritical = msg.Payload?.IsCritical ?? false
-                };
-                EnqueueAndShowAlerts(entry);
-            };
+            // Bind the label text to AlertMessage.Text
+            alertLabel.DataBindings.Add("Text", alertBindingSource, "AlertText");
 
-            _alertHandlerActuatorStatus = env =>
-            {
-                var msg = env.Payload;
-                if (msg == null) return;
-                var entry = new AlertEntry
-                {
-                    Source = msg.Source,
-                    AlertText = msg.AlertText,
-                    Payload = msg.Payload,
-                    IsCritical = msg.Payload?.IsCritical ?? false
-                };
-                EnqueueAndShowAlerts(entry);
-            };
+            // Add controls to banner
+            alertBanner.Controls.Add(alertIcon);
+            alertBanner.Controls.Add(alertLabel);
 
-            _alertHandlerActuatorError = env =>
-            {
-                var msg = env.Payload;
-                if (msg == null) return;
-                var entry = new AlertEntry
-                {
-                    Source = msg.Source,
-                    AlertText = msg.AlertText,
-                    Payload = msg.Payload,
-                    IsCritical = msg.Payload?.IsCritical ?? true
-                };
-                EnqueueAndShowAlerts(entry);
-            };
+            // Add banner to form
+            this.Controls.Add(alertBanner);
+            this.Controls.SetChildIndex(alertBanner, 1);
+
+
+            // Assign handler functions (using a generic handler for less duplication)
+            _alertHandlerSensorTelemetry = HandleAlertActionForSensor<SensorTelemetryMessage>;
+            _alertHandlerSensorStatus = HandleAlertActionForSensor<SensorStatusMessage>;
+            _alertHandlerSensorError = HandleAlertActionForSensor<SensorErrorMessage>;
+
+            _alertHandlerActuatorTelemetry = HandleAlertActionForActuator<ActuatorTelemetryMessage>;
+            _alertHandlerActuatorStatus = HandleAlertActionForActuator<ActuatorStatusMessage>;
+            _alertHandlerActuatorError = HandleAlertActionForActuator<ActuatorErrorMessage>;
 
             // register them
             _eventBus.Subscribe(_alertHandlerSensorTelemetry);
@@ -197,11 +163,24 @@ namespace Carebed.UI
             // _sensorManager.Start(); // removed to prevent automatic sensor start
 
             // start timer
-            _sensorsRunning = false;
-            RunOnUiThread(() => toggleSensorsButton.Text = _sensorsRunning ? "Stop Sensors" : "Start Sensors");
+            //_sensorsRunning = false;
+            //RunOnUiThread(() => toggleSensorsButton.Text = _sensorsRunning ? "Stop Sensors" : "Start Sensors");
 
             // start timer for UI refresh (keeps UI responsive even when sensors are stopped)
-            refreshTimer?.Start();
+            //refreshTimer?.Start();
+        }
+
+
+
+        private void ShowAlert(AlertViewModel alert)
+        {
+            alertBindingSource.DataSource = alert;
+
+            Panel alertBanner = this.Controls["AlertBanner"] as Panel;
+            if (alertBanner != null)
+            {
+                alertBanner.BackColor = alert.isCritical ? Color.Red : Color.Orange;
+            }
         }
 
         /// <summary>
@@ -211,7 +190,7 @@ namespace Carebed.UI
         private void HandleSensorData(MessageEnvelope<SensorTelemetryMessage> envelope)
         {
             // fast guard: if form is closing/disposed, ignore the update
-            if (IsDisposed || Disposing || !_sensorsRunning) return;
+            if (IsDisposed || Disposing) return;
 
             // store in history, then schedule UI update via timer to reduce UI churn
             var source = envelope.Payload.SensorID ?? "Unknown";
@@ -275,21 +254,21 @@ namespace Carebed.UI
         /// <param name="e"></param>
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
-            // stop sensors if running
-            try
-            {
-                _sensorsRunning = false;
-                _sensorManager.Stop();
-            }
-            catch { }
+            //// stop sensors if running
+            //try
+            //{
+            //    _sensorsRunning = false;
+            //    _sensorManager.Stop();
+            //}
+            //catch { }
 
-            // stop timer first
-            try
-            {
-                refreshTimer?.Stop();
-                refreshTimer?.Dispose();
-            }
-            catch { }
+            //// stop timer first
+            //try
+            //{
+            //    refreshTimer?.Stop();
+            //    refreshTimer?.Dispose();
+            //}
+            //catch { }
 
             _eventBus.Unsubscribe<SensorTelemetryMessage>(HandleSensorData);
 
@@ -325,107 +304,107 @@ namespace Carebed.UI
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
+            //this.components = new System.ComponentModel.Container();
 
-            // toggleSensorsButton - start/stop sensors
-            this.toggleSensorsButton = new System.Windows.Forms.Button();
-            this.toggleSensorsButton.Name = "toggleSensorsButton";
-            this.toggleSensorsButton.Text = "Start Sensors";
-            this.toggleSensorsButton.Size = new System.Drawing.Size(140, 30);
-            this.toggleSensorsButton.Location = new System.Drawing.Point(12, 12);
-            this.toggleSensorsButton.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
-            this.toggleSensorsButton.Click += toggleSensorsButton_Click;
+            //// toggleSensorsButton - start/stop sensors
+            //this.toggleSensorsButton = new System.Windows.Forms.Button();
+            //this.toggleSensorsButton.Name = "toggleSensorsButton";
+            //this.toggleSensorsButton.Text = "Start Sensors";
+            //this.toggleSensorsButton.Size = new System.Drawing.Size(140, 30);
+            //this.toggleSensorsButton.Location = new System.Drawing.Point(12, 12);
+            //this.toggleSensorsButton.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
+            //this.toggleSensorsButton.Click += toggleSensorsButton_Click;
 
-            // sensorStatusLabel - shows the status of the sensors (running/stopped)
-            this.sensorStatusLabel = new System.Windows.Forms.Label();
-            this.sensorStatusLabel.Name = "sensorStatusLabel";
-            this.sensorStatusLabel.Text = "Sensors stopped";
-            this.sensorStatusLabel.AutoSize = true;
-            this.sensorStatusLabel.Location = new System.Drawing.Point(160, 17);
-            this.sensorStatusLabel.ForeColor = System.Drawing.Color.Red;
-            this.sensorStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
+            //// sensorStatusLabel - shows the status of the sensors (running/stopped)
+            //this.sensorStatusLabel = new System.Windows.Forms.Label();
+            //this.sensorStatusLabel.Name = "sensorStatusLabel";
+            //this.sensorStatusLabel.Text = "Sensors stopped";
+            //this.sensorStatusLabel.AutoSize = true;
+            //this.sensorStatusLabel.Location = new System.Drawing.Point(160, 17);
+            //this.sensorStatusLabel.ForeColor = System.Drawing.Color.Red;
+            //this.sensorStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
 
-            // transportLogTextBox - multi-line text box to show send/receive traces
-            this.transportLogTextBox = new System.Windows.Forms.TextBox();
-            this.transportLogTextBox.Name = "transportLogTextBox";
-            this.transportLogTextBox.Multiline = true;
-            this.transportLogTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.transportLogTextBox.ReadOnly = true;
-            this.transportLogTextBox.Size = new System.Drawing.Size(760, 120);
-            this.transportLogTextBox.Location = new System.Drawing.Point(12, 320);
-            this.transportLogTextBox.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            //// transportLogTextBox - multi-line text box to show send/receive traces
+            //this.transportLogTextBox = new System.Windows.Forms.TextBox();
+            //this.transportLogTextBox.Name = "transportLogTextBox";
+            //this.transportLogTextBox.Multiline = true;
+            //this.transportLogTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            //this.transportLogTextBox.ReadOnly = true;
+            //this.transportLogTextBox.Size = new System.Drawing.Size(760, 120);
+            //this.transportLogTextBox.Location = new System.Drawing.Point(12, 320);
+            //this.transportLogTextBox.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 
-            // sensorsListView - shows list of sensors and latest value
-            this.sensorsListView = new System.Windows.Forms.ListView();
-            this.sensorsListView.Name = "sensorsListView";
-            this.sensorsListView.View = System.Windows.Forms.View.Details;
-            this.sensorsListView.FullRowSelect = true;
-            this.sensorsListView.MultiSelect = false;
-            this.sensorsListView.Size = new System.Drawing.Size(255, 260);
-            this.sensorsListView.Location = new System.Drawing.Point(12, 50);
-            this.sensorsListView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Bottom;
-            this.sensorsListView.Columns.Add("Sensor", 120);
-            this.sensorsListView.Columns.Add("Last Value", 80);
-            this.sensorsListView.Columns.Add("Count", 50);
-            this.sensorsListView.SelectedIndexChanged += sensorsListView_SelectedIndexChanged;
+            //// sensorsListView - shows list of sensors and latest value
+            //this.sensorsListView = new System.Windows.Forms.ListView();
+            //this.sensorsListView.Name = "sensorsListView";
+            //this.sensorsListView.View = System.Windows.Forms.View.Details;
+            //this.sensorsListView.FullRowSelect = true;
+            //this.sensorsListView.MultiSelect = false;
+            //this.sensorsListView.Size = new System.Drawing.Size(255, 260);
+            //this.sensorsListView.Location = new System.Drawing.Point(12, 50);
+            //this.sensorsListView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Bottom;
+            //this.sensorsListView.Columns.Add("Sensor", 120);
+            //this.sensorsListView.Columns.Add("Last Value", 80);
+            //this.sensorsListView.Columns.Add("Count", 50);
+            //this.sensorsListView.SelectedIndexChanged += sensorsListView_SelectedIndexChanged;
 
-            // historyGridView - shows timestamped values for selected sensor
-            this.historyGridView = new System.Windows.Forms.DataGridView();
-            this.historyGridView.Name = "historyGridView";
-            this.historyGridView.ReadOnly = true;
-            this.historyGridView.AllowUserToAddRows = false;
-            this.historyGridView.AllowUserToDeleteRows = false;
-            this.historyGridView.RowHeadersVisible = false;
-            this.historyGridView.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
-            this.historyGridView.Size = new System.Drawing.Size(500, 260);
-            this.historyGridView.Location = new System.Drawing.Point(280, 50);
-            this.historyGridView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right | System.Windows.Forms.AnchorStyles.Bottom;
+            //// historyGridView - shows timestamped values for selected sensor
+            //this.historyGridView = new System.Windows.Forms.DataGridView();
+            //this.historyGridView.Name = "historyGridView";
+            //this.historyGridView.ReadOnly = true;
+            //this.historyGridView.AllowUserToAddRows = false;
+            //this.historyGridView.AllowUserToDeleteRows = false;
+            //this.historyGridView.RowHeadersVisible = false;
+            //this.historyGridView.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            //this.historyGridView.Size = new System.Drawing.Size(500, 260);
+            //this.historyGridView.Location = new System.Drawing.Point(280, 50);
+            //this.historyGridView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right | System.Windows.Forms.AnchorStyles.Bottom;
 
-            // setup columns for historyGridView
-            if (this.historyGridView.Columns.Count == 0)
-            {
-                this.historyGridView.Columns.Add("Timestamp", "Timestamp");
-                this.historyGridView.Columns.Add("Value", "Value");
-            }
+            //// setup columns for historyGridView
+            //if (this.historyGridView.Columns.Count == 0)
+            //{
+            //    this.historyGridView.Columns.Add("Timestamp", "Timestamp");
+            //    this.historyGridView.Columns.Add("Value", "Value");
+            //}
 
-            // refresh interval controls
-            this.refreshIntervalLabel = new System.Windows.Forms.Label();
-            this.refreshIntervalLabel.Text = "Refresh (ms):";
-            this.refreshIntervalLabel.Location = new System.Drawing.Point(12, 380);
-            this.refreshIntervalLabel.AutoSize = true;
-            this.refreshIntervalLabel.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+            //// refresh interval controls
+            //this.refreshIntervalLabel = new System.Windows.Forms.Label();
+            //this.refreshIntervalLabel.Text = "Refresh (ms):";
+            //this.refreshIntervalLabel.Location = new System.Drawing.Point(12, 380);
+            //this.refreshIntervalLabel.AutoSize = true;
+            //this.refreshIntervalLabel.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
 
-            this.refreshIntervalUpDown = new System.Windows.Forms.NumericUpDown();
-            this.refreshIntervalUpDown.Minimum = 200;
-            this.refreshIntervalUpDown.Maximum = 60000;
-            this.refreshIntervalUpDown.Value = 1000;
-            this.refreshIntervalUpDown.Increment = 200;
-            this.refreshIntervalUpDown.Location = new System.Drawing.Point(90, 376);
-            this.refreshIntervalUpDown.Size = new System.Drawing.Size(80, 22);
-            this.refreshIntervalUpDown.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
-            this.refreshIntervalUpDown.ValueChanged += (s, e) =>
-            {
-                if (refreshTimer != null)
-                    refreshTimer.Interval = (int)refreshIntervalUpDown.Value;
-            };
+            //this.refreshIntervalUpDown = new System.Windows.Forms.NumericUpDown();
+            //this.refreshIntervalUpDown.Minimum = 200;
+            //this.refreshIntervalUpDown.Maximum = 60000;
+            //this.refreshIntervalUpDown.Value = 1000;
+            //this.refreshIntervalUpDown.Increment = 200;
+            //this.refreshIntervalUpDown.Location = new System.Drawing.Point(90, 376);
+            //this.refreshIntervalUpDown.Size = new System.Drawing.Size(80, 22);
+            //this.refreshIntervalUpDown.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+            //this.refreshIntervalUpDown.ValueChanged += (s, e) =>
+            //{
+            //    if (refreshTimer != null)
+            //        refreshTimer.Interval = (int)refreshIntervalUpDown.Value;
+            //};
 
-            // timer to refresh UI at configured interval
-            this.refreshTimer = new System.Windows.Forms.Timer(this.components);
-            this.refreshTimer.Interval = (int)this.refreshIntervalUpDown.Value;
-            this.refreshTimer.Tick += RefreshTimer_Tick;
+            //// timer to refresh UI at configured interval
+            //this.refreshTimer = new System.Windows.Forms.Timer(this.components);
+            //this.refreshTimer.Interval = (int)this.refreshIntervalUpDown.Value;
+            //this.refreshTimer.Tick += RefreshTimer_Tick;
 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Text = "Sensor Dashboard";
+            this.ClientSize = new System.Drawing.Size(1200, 800);
+            this.Text = "Carebed Dashboard";
 
             // Add controls to the form
-            this.Controls.Add(this.toggleSensorsButton);
-            this.Controls.Add(this.sensorStatusLabel);
-            this.Controls.Add(this.transportLogTextBox);
-            this.Controls.Add(this.sensorsListView);
-            this.Controls.Add(this.historyGridView);
-            this.Controls.Add(this.refreshIntervalLabel);
-            this.Controls.Add(this.refreshIntervalUpDown);
+            //this.Controls.Add(this.toggleSensorsButton);
+            //this.Controls.Add(this.sensorStatusLabel);
+            //this.Controls.Add(this.transportLogTextBox);
+            //this.Controls.Add(this.sensorsListView);
+            //this.Controls.Add(this.historyGridView);
+            //this.Controls.Add(this.refreshIntervalLabel);
+            //this.Controls.Add(this.refreshIntervalUpDown);
         }
 
         #endregion
@@ -433,145 +412,149 @@ namespace Carebed.UI
         /// <summary>
         /// Button to toggle starting/stopping sensors
         /// </summary>
-        private void toggleSensorsButton_Click(object? sender, EventArgs e)
-        {
-            try
-            {
-                if (_sensorsRunning)
-                {
-                    _sensorsRunning = false;
-                    _sensorManager.Stop();
-                    _alertManager.Stop(); // stop alert manager
-                    toggleSensorsButton.Text = "Start Sensors";
-                    sensorStatusLabel.Text = "Sensors stopped";
-                    sensorStatusLabel.ForeColor = System.Drawing.Color.Red;
-                    transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors stopped by user\r\n");
-                }
-                else
-                {
-                    _sensorsRunning = true;
-                    _sensorManager.Start();
-                    _alertManager.Start(); // start alert manager
-                    toggleSensorsButton.Text = "Stop Sensors";
-                    sensorStatusLabel.Text = "Sensors running";
-                    sensorStatusLabel.ForeColor = System.Drawing.Color.Green;
-                    transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors started by user\r\n");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Toggle sensors failed: {ex}");
-                MessageBox.Show($"Failed to toggle sensors: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
+        //private void toggleSensorsButton_Click(object? sender, EventArgs e)
+        //{
+        //    try
+        //    {
+        //        if (_sensorsRunning)
+        //        {
+        //            _sensorsRunning = false;
+        //            _sensorManager.Stop();
+        //            _alertManager.Stop(); // stop alert manager
+        //            toggleSensorsButton.Text = "Start Sensors";
+        //            sensorStatusLabel.Text = "Sensors stopped";
+        //            sensorStatusLabel.ForeColor = System.Drawing.Color.Red;
+        //            transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors stopped by user\r\n");
+        //        }
+        //        else
+        //        {
+        //            _sensorsRunning = true;
+        //            _sensorManager.Start();
+        //            _alertManager.Start(); // start alert manager
+        //            toggleSensorsButton.Text = "Stop Sensors";
+        //            sensorStatusLabel.Text = "Sensors running";
+        //            sensorStatusLabel.ForeColor = System.Drawing.Color.Green;
+        //            transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Sensors started by user\r\n");
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        System.Diagnostics.Debug.WriteLine($"Toggle sensors failed: {ex}");
+        //        MessageBox.Show($"Failed to toggle sensors: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //    }
+        //}
 
-        /// <summary>
-        /// Timer tick handler - refreshes the sensors list and currently selected sensor history.
-        /// </summary>
-        private void RefreshTimer_Tick(object? sender, EventArgs e)
-        {
-            // update sensors list
-            List<(string Sensor, DateTime LastTime, double LastValue, int Count)> snapshot;
-            lock (_historyLock)
-            {
-                snapshot = _sensorHistory.Select(kvp =>
-                {
-                    var dict = kvp.Value;
-                    if (dict.Count == 0)
-                        return (Sensor: kvp.Key, LastTime: DateTime.MinValue, LastValue: 0, Count: 0);
+        ///// <summary>
+        ///// Timer tick handler - refreshes the sensors list and currently selected sensor history.
+        ///// </summary>
+        //private void RefreshTimer_Tick(object? sender, EventArgs e)
+        //{
+        //    // update sensors list
+        //    List<(string Sensor, DateTime LastTime, double LastValue, int Count)> snapshot;
+        //    lock (_historyLock)
+        //    {
+        //        snapshot = _sensorHistory.Select(kvp =>
+        //        {
+        //            var dict = kvp.Value;
+        //            if (dict.Count == 0)
+        //                return (Sensor: kvp.Key, LastTime: DateTime.MinValue, LastValue: 0, Count: 0);
 
-                    var lastEntry = dict.OrderByDescending(x => x.Key).First();
-                    return (
-                        Sensor: kvp.Key,
-                        LastTime: lastEntry.Key,
-                        LastValue: lastEntry.Value.Value,
-                        Count: dict.Count
-                    );
-                }).ToList();
-            }
+        //            var lastEntry = dict.OrderByDescending(x => x.Key).First();
+        //            return (
+        //                Sensor: kvp.Key,
+        //                LastTime: lastEntry.Key,
+        //                LastValue: lastEntry.Value.Value,
+        //                Count: dict.Count
+        //            );
+        //        }).ToList();
+        //    }
 
-            RunOnUiThread(() =>
-            {
-                try
-                {
-                    // update sensorsListView while preserving selection
-                    string? selectedKey = null;
-                    if (sensorsListView.SelectedItems.Count > 0)
-                        selectedKey = sensorsListView.SelectedItems[0].Text;
+        //    RunOnUiThread(() =>
+        //    {
+        //        try
+        //        {
+        //            // update sensorsListView while preserving selection
+        //            string? selectedKey = null;
+        //            if (sensorsListView.SelectedItems.Count > 0)
+        //                selectedKey = sensorsListView.SelectedItems[0].Text;
 
-                    sensorsListView.BeginUpdate();
-                    sensorsListView.Items.Clear();
-                    foreach (var item in snapshot.OrderBy(s => s.Sensor))
-                    {
-                        var lvi = new System.Windows.Forms.ListViewItem(item.Sensor);
-                        lvi.SubItems.Add(item.LastValue.ToString("F2"));
-                        lvi.SubItems.Add(item.Count.ToString());
-                        sensorsListView.Items.Add(lvi);
+        //            sensorsListView.BeginUpdate();
+        //            sensorsListView.Items.Clear();
+        //            foreach (var item in snapshot.OrderBy(s => s.Sensor))
+        //            {
+        //                var lvi = new System.Windows.Forms.ListViewItem(item.Sensor);
+        //                lvi.SubItems.Add(item.LastValue.ToString("F2"));
+        //                lvi.SubItems.Add(item.Count.ToString());
+        //                sensorsListView.Items.Add(lvi);
 
-                        if (item.Sensor == selectedKey)
-                            lvi.Selected = true;
-                    }
-                    sensorsListView.EndUpdate();
+        //                if (item.Sensor == selectedKey)
+        //                    lvi.Selected = true;
+        //            }
+        //            sensorsListView.EndUpdate();
 
-                    // update history for selected sensor
-                    if (!string.IsNullOrEmpty(selectedKey))
-                        UpdateHistoryGrid(selectedKey);
-                    else if (sensorsListView.Items.Count > 0 && sensorsListView.SelectedItems.Count == 0)
-                    {
-                        // auto-select first
-                        sensorsListView.Items[0].Selected = true;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Refresh failed: {ex}");
-                }
-            });
-        }
+        //            // update history for selected sensor
+        //            if (!string.IsNullOrEmpty(selectedKey))
+        //                UpdateHistoryGrid(selectedKey);
+        //            else if (sensorsListView.Items.Count > 0 && sensorsListView.SelectedItems.Count == 0)
+        //            {
+        //                // auto-select first
+        //                sensorsListView.Items[0].Selected = true;
+        //            }
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            System.Diagnostics.Debug.WriteLine($"Refresh failed: {ex}");
+        //        }
+        //    });
+        //}
 
-        /// <summary>
-        /// Update the history grid for the given sensor key.
-        /// </summary>
-        private void UpdateHistoryGrid(string sensorKey)
-        {
-            Dictionary<DateTime, SensorData> items;
-            lock (_historyLock)
-            {
-                if (!_sensorHistory.TryGetValue(sensorKey, out items))
-                    items = new Dictionary<DateTime, SensorData>();
-                else
-                    items = new Dictionary<DateTime, SensorData>(items);
-            }
+        ///// <summary>
+        ///// Update the history grid for the given sensor key.
+        ///// </summary>
+        //private void UpdateHistoryGrid(string sensorKey)
+        //{
+        //    Dictionary<DateTime, SensorData> items;
+        //    lock (_historyLock)
+        //    {
+        //        if (!_sensorHistory.TryGetValue(sensorKey, out items))
+        //            items = new Dictionary<DateTime, SensorData>();
+        //        else
+        //            items = new Dictionary<DateTime, SensorData>(items);
+        //    }
 
-            // Now, create a list of tuples for display:
+        //    // Now, create a list of tuples for display:
 
-            //var historyList = items.Select(kvp => (kvp.Key, kvp.Value)).ToList();
-            var historyList = items.OrderByDescending(kvp => kvp.Key).Take(200);
+        //    //var historyList = items.Select(kvp => (kvp.Key, kvp.Value)).ToList();
+        //    var historyList = items.OrderByDescending(kvp => kvp.Key).Take(200);
 
-            historyGridView.SuspendLayout();
-            historyGridView.Rows.Clear();
-            foreach (var it in historyList)
-            {
-                historyGridView.Rows.Add(it.Value.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff"), it.Value.Value.ToString("F2"));
-            }
-            historyGridView.ResumeLayout();
-        }
+        //    historyGridView.SuspendLayout();
+        //    historyGridView.Rows.Clear();
+        //    foreach (var it in historyList)
+        //    {
+        //        historyGridView.Rows.Add(it.Value.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff"), it.Value.Value.ToString("F2"));
+        //    }
+        //    historyGridView.ResumeLayout();
+        //}
 
-        /// <summary>
-        /// Handler when the selected sensor changes - update history view.
-        /// </summary>
-        private void sensorsListView_SelectedIndexChanged(object? sender, EventArgs e)
-        {
-            if (sensorsListView.SelectedItems.Count == 0) return;
-            var key = sensorsListView.SelectedItems[0].Text;
-            UpdateHistoryGrid(key);
-        }
+        ///// <summary>
+        ///// Handler when the selected sensor changes - update history view.
+        ///// </summary>
+        //private void sensorsListView_SelectedIndexChanged(object? sender, EventArgs e)
+        //{
+        //    if (sensorsListView.SelectedItems.Count == 0) return;
+        //    var key = sensorsListView.SelectedItems[0].Text;
+        //    UpdateHistoryGrid(key);
+        //}
 
         /// <summary>
         /// Handle AlertActionMessage for sensor payloads - show popup.
         /// </summary>
-        private void HandleAlertActionForSensor(MessageEnvelope<AlertActionMessage<SensorMessageBase>> envelope)
+        private void HandleAlertActionForSensor<TPayload>(MessageEnvelope<AlertActionMessage<TPayload>> envelope)
+           where TPayload : SensorMessageBase
         {
+
+            ShowAlert
+
             var msg = envelope.Payload;
             if (msg == null) return;
 
@@ -582,14 +565,13 @@ namespace Carebed.UI
                 Payload = msg.Payload,
                 IsCritical = msg.Payload?.IsCritical ?? false
             };
-
-            EnqueueAndShowAlerts(entry);
         }
 
         /// <summary>
         /// Handle AlertActionMessage for actuator payloads - show popup.
         /// </summary>
-        private void HandleAlertActionForActuator(MessageEnvelope<AlertActionMessage<ActuatorMessageBase>> envelope)
+        private void HandleAlertActionForActuator<TPayload>(MessageEnvelope<AlertActionMessage<TPayload>> envelope)
+            where TPayload : ActuatorMessageBase
         {
             var msg = envelope.Payload;
             if (msg == null) return;
@@ -601,54 +583,6 @@ namespace Carebed.UI
                 Payload = msg.Payload,
                 IsCritical = msg.Payload?.IsCritical ?? false
             };
-
-            EnqueueAndShowAlerts(entry);
-        }
-
-        private void EnqueueAndShowAlerts(AlertEntry entry)
-        {
-            lock (_alertsLock)
-            {
-                _pendingAlerts.Add(entry);
-
-                if (_isShowingAlertDialog)
-                {
-                    // dialog already showing; it will be closed by user acknowledging; we just return
-                    return;
-                }
-
-                _isShowingAlertDialog = true;
-            }
-
-            RunOnUiThread(() =>
-            {
-                try
-                {
-                    List<AlertEntry> toShow;
-                    lock (_alertsLock)
-                    {
-                        toShow = new List<AlertEntry>(_pendingAlerts);
-                        _pendingAlerts.Clear();
-                    }
-
-                    using (var popup = new AlertPopup(_eventBus, toShow))
-                    {
-                        // show modal to the main window
-                        popup.ShowDialog(this);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to show alert popup: {ex}");
-                }
-                finally
-                {
-                    lock (_alertsLock)
-                    {
-                        _isShowingAlertDialog = false;
-                    }
-                }
-            });
         }
     }
 }

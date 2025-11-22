@@ -42,7 +42,7 @@ namespace Carebed.Infrastructure
             };
 
             // Instantiate the MainDashboard, pass sensorManager and alertManager so UI controls their lifecycles
-            var dashboard = new MainDashboard(_eventBus, sensorManager, alertManager);
+            var dashboard = new MainDashboard(_eventBus);
 
             // Start non-sensor managers (defer starting sensors and alert manager to the UI)
             actuatorManager.Start();
