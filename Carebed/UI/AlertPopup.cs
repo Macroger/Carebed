@@ -16,8 +16,8 @@ namespace Carebed.UI
 
         private readonly List<AlertEntry> _alerts = new();
 
-        private ListBox alertsListBox;
-        private Button closeButton;
+        private ListBox? alertsListBox;
+        private Button? closeButton;
 
         public AlertPopup(IEventBus eventBus, IEnumerable<AlertEntry> alerts)
         {
@@ -71,20 +71,24 @@ namespace Carebed.UI
 
             e.DrawBackground();
 
-            var item = alertsListBox.Items[e.Index] as AlertEntry;
-            if (item == null)
+            if (alertsListBox is not null && alertsListBox.Items[e.Index] is AlertEntry item)
+            {
+                var prefix = item.IsCritical ? "[CRITICAL] " : string.Empty;
+                var text = $"{prefix}[{item.Source}] {item.AlertText}";
+                var color = item.IsCritical ? Color.Red : SystemColors.WindowText;
+
+                // Ensure e.Font is not null before using it
+                var font = e.Font ?? this.Font;
+
+                using (var brush = new SolidBrush(color))
+                {
+                    e.Graphics.DrawString(text, font, brush, e.Bounds.X, e.Bounds.Y);
+                }
+            }
+            else
             {
                 e.DrawFocusRectangle();
                 return;
-            }
-
-            var prefix = item.IsCritical ? "[CRITICAL] " : string.Empty;
-            var text = $"{prefix}[{item.Source}] {item.AlertText}";
-            var color = item.IsCritical ? Color.Red : SystemColors.WindowText;
-
-            using (var brush = new SolidBrush(color))
-            {
-                e.Graphics.DrawString(text, e.Font, brush, e.Bounds.X, e.Bounds.Y);
             }
 
             e.DrawFocusRectangle();

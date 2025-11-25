@@ -75,6 +75,17 @@ namespace Carebed.Models.Sensors
 
         #region Methods
 
+        protected bool TryTransitionAndNotify(SensorStates nextState)
+        {
+            var oldState = _stateMachine.Current;
+            bool transitioned = _stateMachine.TryTransition(nextState);
+            if (transitioned && _stateMachine.Current != oldState)
+            {
+                OnStateChanged?.Invoke(_stateMachine.Current);
+            }
+            return transitioned;
+        }
+
         /// <summary>
         /// Transitions the sensor to the Running state.
         /// </summary>
@@ -82,11 +93,9 @@ namespace Carebed.Models.Sensors
         {
             if (CurrentState == SensorStates.Uninitialized)
             {
-                // Start internal timer, open hardware connection, etc.
-                _stateMachine.TryTransition(SensorStates.Initialized);
+                TryTransitionAndNotify(SensorStates.Initialized);
             }
-
-            _stateMachine.TryTransition(SensorStates.Running);
+            TryTransitionAndNotify(SensorStates.Running);
         }
 
         /// <summary>
@@ -94,8 +103,7 @@ namespace Carebed.Models.Sensors
         /// </summary>
         public virtual void Stop()
         {
-            // Stop timer, close connection, etc.
-            _stateMachine.TryTransition(SensorStates.Stopped);
+            TryTransitionAndNotify(SensorStates.Stopped);
         }
 
         /// <summary>
@@ -104,9 +112,9 @@ namespace Carebed.Models.Sensors
         /// </summary>
         public virtual void Reset()
         {
-            _stateMachine.TryTransition(SensorStates.Uninitialized);
-            _stateMachine.TryTransition(SensorStates.Initialized);
-            _stateMachine.TryTransition(SensorStates.Running);
+            TryTransitionAndNotify(SensorStates.Uninitialized);
+            TryTransitionAndNotify(SensorStates.Initialized);
+            TryTransitionAndNotify(SensorStates.Running);
         }
 
         /// <summary>

@@ -20,22 +20,7 @@ namespace Carebed.UI
         ///  Required designer variable.
         /// </summary>
         private System.ComponentModel.IContainer components = null;
-
-       
-        #region Windows Forms Elements
-        // start/stop sensors toggle button
-        private System.Windows.Forms.Button toggleSensorsButton;
-        private System.Windows.Forms.Label sensorStatusLabel;
-        private System.Windows.Forms.TextBox transportLogTextBox;
-
-        // new UI controls for sensors overview and history
-        private System.Windows.Forms.ListView sensorsListView;
-        private System.Windows.Forms.DataGridView historyGridView;
-        private System.Windows.Forms.NumericUpDown refreshIntervalUpDown;
-        private System.Windows.Forms.Label refreshIntervalLabel;
-        private System.Windows.Forms.Timer refreshTimer;
-        #endregion
-
+               
         #region Fields and Properties
 
         /// <summary>
@@ -43,8 +28,47 @@ namespace Carebed.UI
         /// </summary>
         private readonly IEventBus _eventBus;
 
+        // A single AlertViewModel instance for databinding
+        private AlertViewModel alertViewModel = new AlertViewModel();
+
+        // A databinding source for alert banner
         private BindingSource alertBindingSource = new BindingSource();
 
+        // UI Control elements for alert banner
+        private Panel alertBanner = new Panel();
+        private Label alertBannerLabel = new Label();
+        private PictureBox alertIcon = new PictureBox();
+        private Label alertLabel = new Label();
+        private Panel alertLogPanel = new Panel();
+        private ListView alertListView = new ListView();
+        private Label alertSourceLabel = new Label();
+        private TableLayoutPanel alertBannerLayout = new TableLayoutPanel();
+        private Label alertCountLabel = new Label();
+
+        // Background colour for the alert banner
+        private Color NoAlertsActiveColour = Color.Green;
+        private Color ActiveAlertsColour = Color.Orange;
+        private Color SevereAlertColour = Color.DarkRed;
+
+        Image NoActiveAlertsIcon = SystemIcons.Information.ToBitmap();
+        Image AlertsActiveIcon = SystemIcons.Warning.ToBitmap();
+        Image SevereAlertsIcon = SystemIcons.Error.ToBitmap();
+
+        // Fields for tabs and main viewport
+        private Panel tabsPanel;
+        private Button vitalsTabButton;
+        private Button actuatorsTabButton;
+        private Button logsTabButton;
+        private Button settingsTabButton;
+        private Panel mainViewportPanel;
+
+        // Guard statement to suppress alert selection changed events during programmatic updates
+        private bool _suppressAlertSelection = false;
+
+        private TableLayoutPanel alertLogContainer;
+        private Button clearAlertsButton;
+        private Button pauseAlertsButton;
+        private bool alertsPaused = false;
 
         // in-memory sensor history storage
         private readonly Dictionary<string, Dictionary<DateTime, SensorData>> _sensorHistory = new();
@@ -53,8 +77,6 @@ namespace Carebed.UI
         // in-memory actuator history storage
         private readonly Dictionary<string, Dictionary<DateTime, ActuatorTelemetryMessage>> _actuatorHistory = new();
         private readonly object _actuatorHistoryLock = new();
-
-        //private bool _sensorsRunning = false;
 
         // concrete alert handlers so we subscribe/unsubscribe to the exact message types published by AlertManager
         private Action<MessageEnvelope<AlertActionMessage<SensorTelemetryMessage>>>? _alertHandlerSensorTelemetry;
@@ -65,11 +87,6 @@ namespace Carebed.UI
         private Action<MessageEnvelope<AlertActionMessage<ActuatorStatusMessage>>>? _alertHandlerActuatorStatus;
         private Action<MessageEnvelope<AlertActionMessage<ActuatorErrorMessage>>>? _alertHandlerActuatorError;
 
-
-        // aggregator for alerts
-        //private readonly List<AlertEntry> _pendingAlerts = new();
-        //private readonly object _alertsLock = new();
-        //private bool _isShowingAlertDialog = false;
 
         #endregion
 
@@ -82,17 +99,202 @@ namespace Carebed.UI
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
 
             InitializeComponent();
-            InitializeAlertBanner();  
+            InitializeAlertBanner();            
+            InitializeTabsPanel();
+            InitializeMainViewportPanel();
+            InitializeAlertLogPanel();
+
+            // Subscribe to single-click selection
+            alertListView.MouseUp += AlertListView_MouseUp;
+
+            // Set z-order: 0 = topmost, higher = further back
+            this.Controls.SetChildIndex(alertBanner, this.Controls.Count - 1); // Topmost
+            this.Controls.SetChildIndex(tabsPanel, this.Controls.Count - 2);
+            this.Controls.SetChildIndex(mainViewportPanel, this.Controls.Count - 3);
+            this.Controls.SetChildIndex(alertLogContainer, this.Controls.Count - 4);
         }
 
         private void InitializeAlertBanner()
         {
-            //throw new NotImplementedException();
+            // Configure the layout panel for a single row, multiple columns
+            alertBannerLayout.ColumnCount = 3;
+            alertBannerLayout.RowCount = 1;
+            alertBannerLayout.Dock = DockStyle.Fill;
+            alertBannerLayout.ColumnStyles.Clear();
+            alertBannerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 50)); // Icon
+            alertBannerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));  // Source
+            alertBannerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 75));  // Value
+
+            // Configure alert banner panel
+            alertBanner.Name = "AlertBanner";
+            alertBanner.Height = 50;
+            alertBanner.Dock = DockStyle.Top;
+            alertBanner.BackColor = NoAlertsActiveColour;
+
+            //alertBannerLabel.Name = "AlertBannerLabel";
+            //alertBannerLabel.Text = "ALERTS:";
+            //alertBannerLabel.Dock = DockStyle.Fill;
+            //alertBannerLabel.TextAlign = ContentAlignment.MiddleLeft;
+            //alertBannerLabel.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            //alertBannerLabel.ForeColor = Color.DeepSkyBlue;
+            //alertBannerLabel.AutoSize = true;
+
+            // Setup AlertIcon
+            alertIcon.Name = "AlertIcon";
+            alertIcon.Size = new Size(40, 40);
+            alertIcon.SizeMode = PictureBoxSizeMode.StretchImage;
+            alertIcon.Image = NoActiveAlertsIcon;
+            alertIcon.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+
+            alertSourceLabel.Name = "AlertSourceLabel";
+            alertSourceLabel.Text = "";
+            alertSourceLabel.Dock = DockStyle.Fill;
+            alertSourceLabel.TextAlign = ContentAlignment.MiddleLeft;
+            alertSourceLabel.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            alertSourceLabel.ForeColor = Color.LightGray;
+            alertSourceLabel.AutoSize = false;
+
+            alertLabel.Name = "AlertLabel";
+            alertLabel.Text = "No active alerts";
+            alertLabel.Dock = DockStyle.Fill;
+            alertLabel.TextAlign = ContentAlignment.MiddleLeft;
+            alertLabel.Font = new Font("Segoe UI", 12, FontStyle.Bold);
+            alertLabel.AutoSize = false;
+
+            // Add controls to layout
+            alertBannerLayout.Controls.Add(alertIcon, 0, 0);
+            alertBannerLayout.Controls.Add(alertSourceLabel, 1, 0);
+            alertBannerLayout.Controls.Add(alertLabel, 2, 0);           
+
+            // Add layout to banner
+            alertBanner.Controls.Clear();
+            alertBanner.Controls.Add(alertBannerLayout);
+
+            // Add banner to form
+            this.Controls.Add(alertBanner);
         }
 
-        #endregion
+        private void InitializeAlertLogPanel()
+        {
+            // Container for log and buttons
+            alertLogContainer = new TableLayoutPanel
+            {
+                Name = "AlertLogContainer",
+                Dock = DockStyle.Bottom,
+                Height = 120,
+                Padding = new Padding(4),
+                BackColor = Color.WhiteSmoke,
+                ColumnCount = 3,
+                RowCount = 1,
+            };
+            alertLogContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Log takes most space
+            alertLogContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120)); // Button width
+            alertLogContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120)); // Button width
 
-        #region Event Handlers
+            // Alert log panel (as before)
+            alertLogPanel.Name = "AlertLogPanel";
+            alertLogPanel.Dock = DockStyle.Fill;
+            alertLogPanel.Padding = new Padding(0);
+            alertLogPanel.BackColor = Color.WhiteSmoke;
+
+            // Configure alert count label
+            alertCountLabel.Dock = DockStyle.Top;
+            alertCountLabel.TextAlign = ContentAlignment.MiddleLeft;
+            alertCountLabel.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            alertCountLabel.Text = "0";
+
+            alertListView.Dock = DockStyle.Fill;
+            alertListView.View = View.Details;
+            alertListView.FullRowSelect = true;
+            alertListView.Columns.Add("Count", 80);
+            alertListView.Columns.Add("Time", 160);
+            alertListView.Columns.Add("Source", 180);
+            alertListView.Columns.Add("Alert", 350);
+            alertListView.Columns.Add("Severity", 100);
+
+            alertLogPanel.Controls.Add(alertListView);
+
+            // Buttons
+            clearAlertsButton = new Button
+            {
+                Text = "Clear Alerts",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(4)
+            };
+            clearAlertsButton.Click += ClearAlertsButton_Click;
+
+            pauseAlertsButton = new Button
+            {
+                Text = "Pause Alerts",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(4)
+            };
+            pauseAlertsButton.Click += PauseAlertsButton_Click;
+
+            // Add to container
+            alertLogContainer.Controls.Add(alertLogPanel, 0, 0);
+            alertLogContainer.Controls.Add(clearAlertsButton, 1, 0);
+            alertLogContainer.Controls.Add(pauseAlertsButton, 2, 0);
+
+            // Add container to form
+            this.Controls.Add(alertLogContainer);
+        }
+
+        private void InitializeTabsPanel()
+        {
+            tabsPanel = new Panel
+            {
+                Name = "TabsPanel",
+                Dock = DockStyle.Top,
+                Height = 40,
+                BackColor = Color.LightGray
+            };
+
+            vitalsTabButton = new Button
+            {
+                Text = "Vitals",
+                Width = 120,
+                Dock = DockStyle.Left
+            };
+            actuatorsTabButton = new Button
+            {
+                Text = "Actuators",
+                Width = 120,
+                Dock = DockStyle.Left
+            };
+            logsTabButton = new Button
+            {
+                Text = "Logs",
+                Width = 120,
+                Dock = DockStyle.Left
+            };
+            settingsTabButton = new Button
+            {
+                Text = "Settings",
+                Width = 120,
+                Dock = DockStyle.Left
+            };
+
+            // Add buttons to panel (reverse order for DockStyle.Left)
+            tabsPanel.Controls.Add(settingsTabButton);
+            tabsPanel.Controls.Add(logsTabButton);
+            tabsPanel.Controls.Add(actuatorsTabButton);
+            tabsPanel.Controls.Add(vitalsTabButton);
+
+            this.Controls.Add(tabsPanel);
+        }
+
+        private void InitializeMainViewportPanel()
+        {
+            mainViewportPanel = new Panel
+            {
+                Name = "MainViewportPanel",
+                Dock = DockStyle.Fill,
+                BackColor = Color.White
+            };
+
+            this.Controls.Add(mainViewportPanel);
+        }
 
         /// <summary>
         /// A override for the OnLoad event to perform additional initialization.
@@ -103,43 +305,14 @@ namespace Carebed.UI
         {
             base.OnLoad(e);
 
-            // Create the Alerts panel
-            Panel alertBanner = new Panel();
-            alertBanner.Name = "AlertBanner";
-            alertBanner.Height = 50; // fixed height for banner
-            alertBanner.Dock = DockStyle.Top;
-            alertBanner.BackColor = Color.LightYellow; // placeholder color
-
-            // Icon (e.g., warning triangle)
-            PictureBox alertIcon = new PictureBox();
-            alertIcon.Name = "AlertIcon";
-            alertIcon.Size = new Size(40, 40);
-            alertIcon.Location = new Point(10, 5);
-            alertIcon.SizeMode = PictureBoxSizeMode.StretchImage;
-            
-            // Placeholder icon — you can replace with an actual image resource
-            alertIcon.Image = SystemIcons.Warning.ToBitmap();
-
-            // Add a label for alert text
-            Label alertLabel = new Label();
-            alertLabel.Name = "AlertLabel";
-            alertLabel.Text = "No active alerts";
-            alertLabel.AutoSize = false;
-            alertLabel.Dock = DockStyle.Fill;
-            alertLabel.TextAlign = ContentAlignment.MiddleCenter;
-            alertLabel.Font = new Font("Segoe UI", 12, FontStyle.Bold);
-
             // Bind the label text to AlertMessage.Text
+            AlertViewModel emptyBinding = new AlertViewModel()
+            {
+                AlertText = "",
+                IsCritical = false
+            };
+            alertBindingSource.DataSource = alertViewModel;
             alertLabel.DataBindings.Add("Text", alertBindingSource, "AlertText");
-
-            // Add controls to banner
-            alertBanner.Controls.Add(alertIcon);
-            alertBanner.Controls.Add(alertLabel);
-
-            // Add banner to form
-            this.Controls.Add(alertBanner);
-            this.Controls.SetChildIndex(alertBanner, 1);
-
 
             // Assign handler functions (using a generic handler for less duplication)
             _alertHandlerSensorTelemetry = HandleAlertActionForSensor<SensorTelemetryMessage>;
@@ -159,81 +332,307 @@ namespace Carebed.UI
             _eventBus.Subscribe(_alertHandlerActuatorStatus);
             _eventBus.Subscribe(_alertHandlerActuatorError);
 
-            // Do NOT start the sensor manager automatically. User must press Start.
-            // _sensorManager.Start(); // removed to prevent automatic sensor start
-
-            // start timer
-            //_sensorsRunning = false;
-            //RunOnUiThread(() => toggleSensorsButton.Text = _sensorsRunning ? "Stop Sensors" : "Start Sensors");
-
-            // start timer for UI refresh (keeps UI responsive even when sensors are stopped)
-            //refreshTimer?.Start();
-        }
-
-
-
-        private void ShowAlert(AlertViewModel alert)
-        {
-            alertBindingSource.DataSource = alert;
-
-            Panel alertBanner = this.Controls["AlertBanner"] as Panel;
-            if (alertBanner != null)
-            {
-                alertBanner.BackColor = alert.isCritical ? Color.Red : Color.Orange;
-            }
-        }
-
-        /// <summary>
-        /// Handler for incoming SensorData messages.
-        /// </summary>
-        /// <param name="envelope"></param>
-        private void HandleSensorData(MessageEnvelope<SensorTelemetryMessage> envelope)
-        {
-            // fast guard: if form is closing/disposed, ignore the update
-            if (IsDisposed || Disposing) return;
-
-            // store in history, then schedule UI update via timer to reduce UI churn
-            var source = envelope.Payload.SensorID ?? "Unknown";
-            var timestamp = envelope.Timestamp != default ? envelope.Timestamp : DateTime.Now;
-            var value = envelope.Payload.Data.Value;
-
-            lock (_historyLock)
-            {
-                // Check to see if an entry for this sensor already exists
-                if (!_sensorHistory.TryGetValue(source, out var dict))
-                {
-                    // An entry does not exist, create a new list for this sensor
-                    dict = new Dictionary<DateTime, SensorData>();
-                    _sensorHistory[source] = dict;
-                }
-
-                dict.Add(timestamp, envelope.Payload.Data);
-
-                // cap history to last 5000 entries per sensor to avoid unbounded growth
-                if (dict.Count > 5000)
-                {
-                    // Remove oldest entries to keep only the last 5000
-                    var keysToRemove = dict.Keys.OrderBy(k => k).Take(dict.Count - 5000).ToList();
-                    foreach (var key in keysToRemove)
-                        dict.Remove(key);
-                }
-            }
-
-            // update transport log quickly on UI thread
-            RunOnUiThread(() =>
-            {
-                try
-                {
-                    transportLogTextBox?.AppendText($"{DateTime.Now:HH:mm:ss.fff} Received: {value:F2} from {source}\r\n");
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"UI update failed: {ex}");
-                }
-            });
+            vitalsTabButton.Click += VitalsTabButton_Click;
+            actuatorsTabButton.Click += ActuatorsTabButton_Click;
+            logsTabButton.Click += LogsTabButton_Click;
+            settingsTabButton.Click += SettingsTabButton_Click;
         }
 
         #endregion
+
+        #region Event Handlers
+
+        private void ClearAlertsButton_Click(object? sender, EventArgs e)
+        {
+            alertListView.Items.Clear();
+            UpdateAlertCount();
+            ShowAlert(new AlertViewModel { AlertText = "No active alerts", IsCritical = false, Source = "" });
+        }
+
+        private void PauseAlertsButton_Click(object? sender, EventArgs e)
+        {
+            alertsPaused = !alertsPaused;
+            if (alertsPaused)
+            {
+                // Unsubscribe from alert handlers
+                if (_alertHandlerSensorTelemetry != null) _eventBus.Unsubscribe(_alertHandlerSensorTelemetry);
+                if (_alertHandlerSensorStatus != null) _eventBus.Unsubscribe(_alertHandlerSensorStatus);
+                if (_alertHandlerSensorError != null) _eventBus.Unsubscribe(_alertHandlerSensorError);
+                if (_alertHandlerActuatorTelemetry != null) _eventBus.Unsubscribe(_alertHandlerActuatorTelemetry);
+                if (_alertHandlerActuatorStatus != null) _eventBus.Unsubscribe(_alertHandlerActuatorStatus);
+                if (_alertHandlerActuatorError != null) _eventBus.Unsubscribe(_alertHandlerActuatorError);
+                pauseAlertsButton.Text = "Resume Alerts";
+            }
+            else
+            {
+                // Re-subscribe to alert handlers
+                if (_alertHandlerSensorTelemetry != null) _eventBus.Subscribe(_alertHandlerSensorTelemetry);
+                if (_alertHandlerSensorStatus != null) _eventBus.Subscribe(_alertHandlerSensorStatus);
+                if (_alertHandlerSensorError != null) _eventBus.Subscribe(_alertHandlerSensorError);
+                if (_alertHandlerActuatorTelemetry != null) _eventBus.Subscribe(_alertHandlerActuatorTelemetry);
+                if (_alertHandlerActuatorStatus != null) _eventBus.Subscribe(_alertHandlerActuatorStatus);
+                if (_alertHandlerActuatorError != null) _eventBus.Subscribe(_alertHandlerActuatorError);
+                pauseAlertsButton.Text = "Pause Alerts";
+            }
+        }
+
+        private void VitalsTabButton_Click(object? sender, EventArgs e)
+        {
+            mainViewportPanel.BackColor = Color.LightSkyBlue; // Example color for Vitals
+        }
+
+        private void ActuatorsTabButton_Click(object? sender, EventArgs e)
+        {
+            mainViewportPanel.BackColor = Color.LightGreen; // Example color for Actuators
+        }
+
+        private void LogsTabButton_Click(object? sender, EventArgs e)
+        {
+            mainViewportPanel.BackColor = Color.LightYellow; // Example color for Logs
+        }
+
+        private void SettingsTabButton_Click(object? sender, EventArgs e)
+        {
+            mainViewportPanel.BackColor = Color.LightCoral; // Example color for Settings
+        }
+
+        /// <summary>
+        /// Handle AlertActionMessage for sensor payloads - show popup.
+        /// </summary>
+        private void HandleAlertActionForSensor<TPayload>(MessageEnvelope<AlertActionMessage<TPayload>> envelope)
+           where TPayload : SensorMessageBase
+        {
+            var msg = envelope.Payload;
+            if (msg == null) return;
+
+            AlertViewModel avm = new AlertViewModel
+            {
+                AlertText = msg.AlertText,
+                IsCritical = msg.Payload?.IsCritical ?? false,
+                Source = msg.Source
+            };
+
+            RunOnUiThread(() =>
+            {
+                ShowAlert(avm);
+
+                //// Generate alert entry for log
+                string alertCount = (alertListView.Items.Count + 1).ToString();
+                string time = DateTime.Now.ToString("MMM. dd HH:mm:ss");
+                string source = msg.Payload?.SensorID ?? "Unknown";
+                string alertText = msg.AlertText;
+                string severity = msg.Payload?.IsCritical == true ? "Critical" : "Normal";
+
+                // Create ListViewItem
+                var item = new ListViewItem(alertCount);
+
+                // Add subitems: Source, Severity, Alert Text
+                item.SubItems.Add(time);
+                item.SubItems.Add(source);                
+                item.SubItems.Add(alertText);
+                item.SubItems.Add(severity);
+
+                // Insert at the top
+                alertListView.Items.Insert(0, item);
+                UpdateAlertCount();
+            });
+           
+        }
+
+        /// <summary>
+        /// Handle AlertActionMessage for actuator payloads - show popup.
+        /// </summary>
+        private void HandleAlertActionForActuator<TPayload>(MessageEnvelope<AlertActionMessage<TPayload>> envelope)
+            where TPayload : ActuatorMessageBase
+        {
+            var msg = envelope.Payload;
+            if (msg == null) return;
+
+            var entry = new AlertEntry
+            {
+                Source = msg.Source,
+                AlertText = msg.AlertText,
+                Payload = msg.Payload,
+                IsCritical = msg.Payload?.IsCritical ?? false
+            };
+        }
+
+        /// <summary>
+        /// Shows an alert in the alert banner and optionally as a popup.
+        /// </summary>
+        /// <param name="alert"></param>
+        private void ShowAlert(AlertViewModel alert)
+        {
+            alertViewModel.AlertText = alert.AlertText;
+            alertViewModel.IsCritical = alert.IsCritical;
+            alertViewModel.Source = alert.Source;
+
+            alertBanner = this.Controls["AlertBanner"] as Panel;
+            if (alertBanner != null)
+            {
+                if (string.IsNullOrWhiteSpace(alert.AlertText) || alert.AlertText == "No active alerts")
+                {
+                    alertBanner.BackColor = NoAlertsActiveColour;
+                    alertIcon.Image = NoActiveAlertsIcon;
+                }
+                else if (alert.IsCritical)
+                {
+                    alertBanner.BackColor = SevereAlertColour;
+                    alertIcon.Image = SevereAlertsIcon;
+                }
+                else
+                {
+                    alertBanner.BackColor = ActiveAlertsColour;
+                    alertIcon.Image = AlertsActiveIcon;
+                }
+            }
+
+            // Update the source label
+            alertSourceLabel.Text = $"{alert.Source} ";
+
+        }
+
+        private void AlertListView_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_suppressAlertSelection)
+                return;
+
+            if (alertListView.SelectedItems.Count == 0)
+                return;
+
+            var item = alertListView.SelectedItems[0];
+
+            // Show details in a popup
+            var details = $"Time: {item.Text}\nSource: {item.SubItems[1].Text}\nAlert: {item.SubItems[2].Text}";
+            var result = MessageBox.Show(
+                details + "\n\nClear this alert?",
+                "Alert Details",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Information
+            );
+
+            if (result == DialogResult.OK)
+            {
+                _suppressAlertSelection = true; // Suppress further events during removal
+                RunOnUiThread(() =>
+                {
+                    // Check if the dismissed alert is the one currently shown in the banner
+                    bool isCurrentBannerAlert =
+                        alertViewModel.AlertText == item.SubItems[2].Text &&
+                        alertViewModel.Source == item.SubItems[1].Text;
+
+                    alertListView.Items.Remove(item);
+                    UpdateAlertCount();
+
+                    // If the banner was showing this alert, update the banner
+                    if (isCurrentBannerAlert)
+                    {
+                        if (alertListView.Items.Count > 0)
+                        {
+                            var nextItem = alertListView.Items[0];
+                            bool isCritical = nextItem.SubItems[4].Text.Equals("Critical", StringComparison.OrdinalIgnoreCase);
+                            ShowAlert(new AlertViewModel
+                            {
+                                AlertText = nextItem.SubItems[2].Text,
+                                Source = nextItem.SubItems[1].Text,
+                                IsCritical = isCritical
+                            });
+                        }
+                        else
+                        {
+                            // No more alerts: clear the banner
+                            alertViewModel.AlertText = "No active alerts";
+                            ShowAlert(new AlertViewModel { AlertText = "", IsCritical = false, Source = "" });
+                        }
+                    }
+                    _suppressAlertSelection = false; // Re-enable handler
+                });
+            }
+            else
+            {
+                _suppressAlertSelection = true;
+                RunOnUiThread(() =>
+                {                    
+                    item.Selected = false;
+                    _suppressAlertSelection = false;
+                });
+            }
+        }
+
+        #endregion
+
+        private DialogResult ShowAlertPopup(string details, MessageBoxButtons buttons, MessageBoxIcon icon)
+        {
+            using (var popup = new SingleAlertPopup(details, buttons, icon))
+            {
+                popup.StartPosition = FormStartPosition.CenterParent;
+                return popup.ShowDialog(this);
+            }
+        }
+
+
+        private void AlertListView_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            var info = alertListView.HitTest(e.Location);
+            if (info.Item != null)
+            {
+                var item = info.Item;
+                string count = item.SubItems[0].Text;
+                string time = item.SubItems[1].Text;
+                string source = item.SubItems[2].Text;
+                string alert = item.SubItems[3].Text;
+                string severity = item.SubItems[4].Text;
+
+                var details = $"Count: {count}\nTime: {time}\nSource: {source}\nAlert Value: {alert}\nSeverity: {severity}";
+
+                var result = ShowAlertPopup(
+                    details + "\n\nClear this alert?",
+                    MessageBoxButtons.OKCancel,
+                    MessageBoxIcon.Information
+                );
+
+                if (result == DialogResult.OK)
+                {
+                    RunOnUiThread(() =>
+                    {
+                        bool isCurrentBannerAlert =
+                            alertViewModel.AlertText == item.SubItems[2].Text &&
+                            alertViewModel.Source == item.SubItems[1].Text;
+
+                        alertListView.Items.Remove(item);
+                        UpdateAlertCount();
+
+                        if (alertListView.Items.Count == 0)
+                        {
+                            // No more alerts: show "No active alerts"
+                            ShowAlert(new AlertViewModel { AlertText = "No active alerts", IsCritical = false, Source = "" });
+                        }
+                        else if (isCurrentBannerAlert)
+                        {
+                            if (alertListView.Items.Count > 0)
+                            {
+                                var nextItem = alertListView.Items[0];
+                                ShowAlert(new AlertViewModel
+                                {
+                                    AlertText = nextItem.SubItems[2].Text,
+                                    Source = nextItem.SubItems[1].Text,
+                                    IsCritical = false
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+
+        private void UpdateAlertCount()
+        {
+            alertCountLabel.Text = $"{alertListView.Items.Count}";
+        }
 
         /// <summary>
         /// Helper to run an action on the UI thread.
@@ -254,24 +653,6 @@ namespace Carebed.UI
         /// <param name="e"></param>
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
-            //// stop sensors if running
-            //try
-            //{
-            //    _sensorsRunning = false;
-            //    _sensorManager.Stop();
-            //}
-            //catch { }
-
-            //// stop timer first
-            //try
-            //{
-            //    refreshTimer?.Stop();
-            //    refreshTimer?.Dispose();
-            //}
-            //catch { }
-
-            _eventBus.Unsubscribe<SensorTelemetryMessage>(HandleSensorData);
-
             if (_alertHandlerSensorTelemetry != null) _eventBus.Unsubscribe(_alertHandlerSensorTelemetry);
             if (_alertHandlerSensorStatus != null) _eventBus.Unsubscribe(_alertHandlerSensorStatus);
             if (_alertHandlerSensorError != null) _eventBus.Unsubscribe(_alertHandlerSensorError);
@@ -304,107 +685,12 @@ namespace Carebed.UI
         /// </summary>
         private void InitializeComponent()
         {
-            //this.components = new System.ComponentModel.Container();
+            this.components = new System.ComponentModel.Container();
 
-            //// toggleSensorsButton - start/stop sensors
-            //this.toggleSensorsButton = new System.Windows.Forms.Button();
-            //this.toggleSensorsButton.Name = "toggleSensorsButton";
-            //this.toggleSensorsButton.Text = "Start Sensors";
-            //this.toggleSensorsButton.Size = new System.Drawing.Size(140, 30);
-            //this.toggleSensorsButton.Location = new System.Drawing.Point(12, 12);
-            //this.toggleSensorsButton.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
-            //this.toggleSensorsButton.Click += toggleSensorsButton_Click;
-
-            //// sensorStatusLabel - shows the status of the sensors (running/stopped)
-            //this.sensorStatusLabel = new System.Windows.Forms.Label();
-            //this.sensorStatusLabel.Name = "sensorStatusLabel";
-            //this.sensorStatusLabel.Text = "Sensors stopped";
-            //this.sensorStatusLabel.AutoSize = true;
-            //this.sensorStatusLabel.Location = new System.Drawing.Point(160, 17);
-            //this.sensorStatusLabel.ForeColor = System.Drawing.Color.Red;
-            //this.sensorStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
-
-            //// transportLogTextBox - multi-line text box to show send/receive traces
-            //this.transportLogTextBox = new System.Windows.Forms.TextBox();
-            //this.transportLogTextBox.Name = "transportLogTextBox";
-            //this.transportLogTextBox.Multiline = true;
-            //this.transportLogTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            //this.transportLogTextBox.ReadOnly = true;
-            //this.transportLogTextBox.Size = new System.Drawing.Size(760, 120);
-            //this.transportLogTextBox.Location = new System.Drawing.Point(12, 320);
-            //this.transportLogTextBox.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-
-            //// sensorsListView - shows list of sensors and latest value
-            //this.sensorsListView = new System.Windows.Forms.ListView();
-            //this.sensorsListView.Name = "sensorsListView";
-            //this.sensorsListView.View = System.Windows.Forms.View.Details;
-            //this.sensorsListView.FullRowSelect = true;
-            //this.sensorsListView.MultiSelect = false;
-            //this.sensorsListView.Size = new System.Drawing.Size(255, 260);
-            //this.sensorsListView.Location = new System.Drawing.Point(12, 50);
-            //this.sensorsListView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Bottom;
-            //this.sensorsListView.Columns.Add("Sensor", 120);
-            //this.sensorsListView.Columns.Add("Last Value", 80);
-            //this.sensorsListView.Columns.Add("Count", 50);
-            //this.sensorsListView.SelectedIndexChanged += sensorsListView_SelectedIndexChanged;
-
-            //// historyGridView - shows timestamped values for selected sensor
-            //this.historyGridView = new System.Windows.Forms.DataGridView();
-            //this.historyGridView.Name = "historyGridView";
-            //this.historyGridView.ReadOnly = true;
-            //this.historyGridView.AllowUserToAddRows = false;
-            //this.historyGridView.AllowUserToDeleteRows = false;
-            //this.historyGridView.RowHeadersVisible = false;
-            //this.historyGridView.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
-            //this.historyGridView.Size = new System.Drawing.Size(500, 260);
-            //this.historyGridView.Location = new System.Drawing.Point(280, 50);
-            //this.historyGridView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right | System.Windows.Forms.AnchorStyles.Bottom;
-
-            //// setup columns for historyGridView
-            //if (this.historyGridView.Columns.Count == 0)
-            //{
-            //    this.historyGridView.Columns.Add("Timestamp", "Timestamp");
-            //    this.historyGridView.Columns.Add("Value", "Value");
-            //}
-
-            //// refresh interval controls
-            //this.refreshIntervalLabel = new System.Windows.Forms.Label();
-            //this.refreshIntervalLabel.Text = "Refresh (ms):";
-            //this.refreshIntervalLabel.Location = new System.Drawing.Point(12, 380);
-            //this.refreshIntervalLabel.AutoSize = true;
-            //this.refreshIntervalLabel.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
-
-            //this.refreshIntervalUpDown = new System.Windows.Forms.NumericUpDown();
-            //this.refreshIntervalUpDown.Minimum = 200;
-            //this.refreshIntervalUpDown.Maximum = 60000;
-            //this.refreshIntervalUpDown.Value = 1000;
-            //this.refreshIntervalUpDown.Increment = 200;
-            //this.refreshIntervalUpDown.Location = new System.Drawing.Point(90, 376);
-            //this.refreshIntervalUpDown.Size = new System.Drawing.Size(80, 22);
-            //this.refreshIntervalUpDown.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
-            //this.refreshIntervalUpDown.ValueChanged += (s, e) =>
-            //{
-            //    if (refreshTimer != null)
-            //        refreshTimer.Interval = (int)refreshIntervalUpDown.Value;
-            //};
-
-            //// timer to refresh UI at configured interval
-            //this.refreshTimer = new System.Windows.Forms.Timer(this.components);
-            //this.refreshTimer.Interval = (int)this.refreshIntervalUpDown.Value;
-            //this.refreshTimer.Tick += RefreshTimer_Tick;
-
+            // Configure the main form
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1200, 800);
             this.Text = "Carebed Dashboard";
-
-            // Add controls to the form
-            //this.Controls.Add(this.toggleSensorsButton);
-            //this.Controls.Add(this.sensorStatusLabel);
-            //this.Controls.Add(this.transportLogTextBox);
-            //this.Controls.Add(this.sensorsListView);
-            //this.Controls.Add(this.historyGridView);
-            //this.Controls.Add(this.refreshIntervalLabel);
-            //this.Controls.Add(this.refreshIntervalUpDown);
         }
 
         #endregion
@@ -546,48 +832,6 @@ namespace Carebed.UI
         //    UpdateHistoryGrid(key);
         //}
 
-        /// <summary>
-        /// Handle AlertActionMessage for sensor payloads - show popup.
-        /// </summary>
-        private void HandleAlertActionForSensor<TPayload>(MessageEnvelope<AlertActionMessage<TPayload>> envelope)
-           where TPayload : SensorMessageBase
-        {
-            AlertViewModel avm = new AlertViewModel
-            {
-                Text = envelope.Payload.AlertText,
-                isCritical = envelope.Payload.Payload?.IsCritical ?? false
-            };
-
-            ShowAlert(avm);
-
-            var msg = envelope.Payload;
-            if (msg == null) return;
-
-            var entry = new AlertEntry
-            {
-                Source = msg.Source,
-                AlertText = msg.AlertText,
-                Payload = msg.Payload,
-                IsCritical = msg.Payload?.IsCritical ?? false
-            };
-        }
-
-        /// <summary>
-        /// Handle AlertActionMessage for actuator payloads - show popup.
-        /// </summary>
-        private void HandleAlertActionForActuator<TPayload>(MessageEnvelope<AlertActionMessage<TPayload>> envelope)
-            where TPayload : ActuatorMessageBase
-        {
-            var msg = envelope.Payload;
-            if (msg == null) return;
-
-            var entry = new AlertEntry
-            {
-                Source = msg.Source,
-                AlertText = msg.AlertText,
-                Payload = msg.Payload,
-                IsCritical = msg.Payload?.IsCritical ?? false
-            };
-        }
+        
     }
 }

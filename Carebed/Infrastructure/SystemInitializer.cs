@@ -46,7 +46,8 @@ namespace Carebed.Infrastructure
 
             // Start non-sensor managers (defer starting sensors and alert manager to the UI)
             actuatorManager.Start();
-            // alertManager.Start() deferred until sensors are started by the UI
+            alertManager.Start();
+            sensorManager.Start();
 
             return (_eventBus, managers, dashboard);
         }
