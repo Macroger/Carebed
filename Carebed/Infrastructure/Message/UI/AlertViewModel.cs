@@ -8,6 +8,7 @@ namespace Carebed.Infrastructure.Message.UI
         private string alertText = "";
         private bool isCritical;
         private string source = "";
+        private string time = "";
 
         public string AlertText
         {
@@ -43,6 +44,19 @@ namespace Carebed.Infrastructure.Message.UI
                 if (source != value)
                 {
                     source = value;
+                    OnPropertyChanged(nameof(Source));
+                }
+            }
+        }
+
+        public string Time
+        {
+            get => time;
+            set
+            {
+                if (time != value)
+                {
+                    time = value;
                     OnPropertyChanged(nameof(Source));
                 }
             }
