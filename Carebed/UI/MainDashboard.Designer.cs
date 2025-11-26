@@ -20,14 +20,10 @@ namespace Carebed.UI
         ///  Required designer variable.
         /// </summary>
         private System.ComponentModel.IContainer components = null;
-               
-
 
         #region Fields and Properties
-
-        /// <summary>
-        /// A reference to the event bus for publishing and subscribing to events.
-        /// </summary>
+        
+        // A reference to the event bus for publishing and subscribing to events.        
         private readonly IEventBus _eventBus;
 
         // A single AlertViewModel instance for databinding
@@ -36,24 +32,15 @@ namespace Carebed.UI
         // A databinding source for alert banner
         private BindingSource alertBindingSource = new BindingSource();
 
-        // Guard statement to suppress alert selection changed events during programmatic updates
-        //private bool _suppressAlertSelection = false;
-
+        // Flag to indicate if alerts are paused
         private bool alertsPaused = false;
 
-        // in-memory sensor history storage
-        //private readonly Dictionary<string, Dictionary<DateTime, SensorData>> _sensorHistory = new();
-        //private readonly object _historyLock = new();
-
-        // in-memory actuator history storage
-        //private readonly Dictionary<string, Dictionary<DateTime, ActuatorTelemetryMessage>> _actuatorHistory = new();
-        //private readonly object _actuatorHistoryLock = new();
-
-        // concrete alert handlers so we subscribe/unsubscribe to the exact message types published by AlertManager
+        // Sensor alert handlers
         private Action<MessageEnvelope<AlertActionMessage<SensorTelemetryMessage>>>? _alertHandlerSensorTelemetry;
         private Action<MessageEnvelope<AlertActionMessage<SensorStatusMessage>>>? _alertHandlerSensorStatus;
         private Action<MessageEnvelope<AlertActionMessage<SensorErrorMessage>>>? _alertHandlerSensorError;
 
+        // Actuator alert handlers
         private Action<MessageEnvelope<AlertActionMessage<ActuatorTelemetryMessage>>>? _alertHandlerActuatorTelemetry;
         private Action<MessageEnvelope<AlertActionMessage<ActuatorStatusMessage>>>? _alertHandlerActuatorStatus;
         private Action<MessageEnvelope<AlertActionMessage<ActuatorErrorMessage>>>? _alertHandlerActuatorError;
@@ -61,6 +48,14 @@ namespace Carebed.UI
         #endregion
 
         #region Windows Forms Elements
+
+        #region Alert Banner
+
+        private TableLayoutPanel alertBannerLayout = new TableLayoutPanel();
+        private Panel alertBanner = new Panel();
+        private Label alertBannerLabel = new Label();
+        private PictureBox alertBannerIcon = new PictureBox();
+
         private TableLayoutPanel alertBannerTable;
         private Label alertBannerTimeTitle;
         private Label alertBannerSourceTitle;
@@ -71,12 +66,20 @@ namespace Carebed.UI
         private Label alertBannerSeverityTitle;
         private Label alertBannerSeverityValue;
 
-        private TableLayoutPanel alertLogContainer;
-        private Button clearAlertsButton;
-        private Button pauseAlertsButton;
+        // Background colour for the alert banner
+        private Color NoAlertsActiveColour = Color.Green;
+        private Color ActiveAlertsColour = Color.Orange;
+        private Color SevereAlertColour = Color.DarkRed;
 
-        // Fields for tabs and main viewport
-        private Panel tabsPanel;
+        // Icons for alert banner
+        Image NoActiveAlertsIcon = SystemIcons.Information.ToBitmap();
+        Image AlertsActiveIcon = SystemIcons.Warning.ToBitmap();
+        Image SevereAlertsIcon = SystemIcons.Error.ToBitmap();
+        #endregion
+        
+        #region Tabs and Viewport
+
+        private Panel tabsPanel;        
 
         private Button vitalsTabButton;
         private Button actuatorsTabButton;
@@ -84,36 +87,29 @@ namespace Carebed.UI
         private Button settingsTabButton;
 
         private Panel mainViewportPanel;
-        private Panel alertBanner = new Panel();
-        private Panel alertLogPanel = new Panel();
-        private Panel pauseStatusIndicator;
 
+        #endregion
+
+        #region Alert Log Panel
+        private ListView alertListView = new ListView();
+        private Panel alertLogPanel = new Panel();
         private Label alertSourceLabel = new Label();
-        private Label pauseStatusLabel;
         private Label alertLabel = new Label();
         private Label alertCountLabel = new Label();
-        private Label alertBannerLabel = new Label();      
-        
-        private PictureBox alertIcon = new PictureBox();
 
-        private ListView alertListView = new ListView();
-        
-        private TableLayoutPanel alertBannerLayout = new TableLayoutPanel();
-        
+        private Panel pauseStatusIndicator;
+        private Label pauseStatusLabel;
 
-        // Background colour for the alert banner
-        private Color NoAlertsActiveColour = Color.Green;
-        private Color ActiveAlertsColour = Color.Orange;
-        private Color SevereAlertColour = Color.DarkRed;
+        private TableLayoutPanel alertLogContainer;
+        private Button clearAlertsButton;
+        private Button pauseAlertsButton;
 
-        Image NoActiveAlertsIcon = SystemIcons.Information.ToBitmap();
-        Image AlertsActiveIcon = SystemIcons.Warning.ToBitmap();
-        Image SevereAlertsIcon = SystemIcons.Error.ToBitmap();
-
+        #endregion
 
         #endregion
 
         #region Constructor(s)
+
         /// <summary>
         /// Constructor for MainDashboard that accepts an IEventBus instance.
         /// </summary>
@@ -140,6 +136,9 @@ namespace Carebed.UI
             this.Controls.SetChildIndex(alertLogContainer, this.Controls.Count - 4);
         }
 
+        /// <summary>
+        /// Setup the alert banner UI components.
+        /// </summary>
         private void InitializeAlertBanner()
         {
             // Create the table for the banner
@@ -249,6 +248,9 @@ namespace Carebed.UI
             this.Controls.Add(alertBanner);
         }
 
+        /// <summary>
+        /// Setup the alert log panel UI components.
+        /// </summary>
         private void InitializeAlertLogPanel()
         {
             // Create a label for the alert log title
@@ -431,6 +433,9 @@ namespace Carebed.UI
             this.Controls.Add(alertLogContainer);
         }
 
+        /// <summary>
+        /// Setup the tabs panel UI components.
+        /// </summary>
         private void InitializeTabsPanel()
         {
             tabsPanel = new Panel
@@ -475,6 +480,9 @@ namespace Carebed.UI
             this.Controls.Add(tabsPanel);
         }
 
+        /// <summary>
+        /// Setup the main viewport panel UI components.
+        /// </summary>
         private void InitializeMainViewportPanel()
         {
             mainViewportPanel = new Panel
@@ -502,27 +510,31 @@ namespace Carebed.UI
                 AlertText = "",
                 IsCritical = false
             };
+            // Setup data binding for alert banner
             alertBindingSource.DataSource = alertViewModel;
             alertLabel.DataBindings.Add("Text", alertBindingSource, "AlertText");
 
-            // Assign handler functions (using a generic handler for less duplication)
+            // Sensor message handlers
             _alertHandlerSensorTelemetry = HandleAlertActionForSensor<SensorTelemetryMessage>;
             _alertHandlerSensorStatus = HandleAlertActionForSensor<SensorStatusMessage>;
             _alertHandlerSensorError = HandleAlertActionForSensor<SensorErrorMessage>;
 
+            // Actuator message handlers
             _alertHandlerActuatorTelemetry = HandleAlertActionForActuator<ActuatorTelemetryMessage>;
             _alertHandlerActuatorStatus = HandleAlertActionForActuator<ActuatorStatusMessage>;
             _alertHandlerActuatorError = HandleAlertActionForActuator<ActuatorErrorMessage>;
 
-            // register them
+            // Register sensor handlers with event bus
             _eventBus.Subscribe(_alertHandlerSensorTelemetry);
             _eventBus.Subscribe(_alertHandlerSensorStatus);
             _eventBus.Subscribe(_alertHandlerSensorError);
 
+            // Register actuator handlers with event bus
             _eventBus.Subscribe(_alertHandlerActuatorTelemetry);
             _eventBus.Subscribe(_alertHandlerActuatorStatus);
             _eventBus.Subscribe(_alertHandlerActuatorError);
 
+            // Attach tab button click handlers
             vitalsTabButton.Click += VitalsTabButton_Click;
             actuatorsTabButton.Click += ActuatorsTabButton_Click;
             logsTabButton.Click += LogsTabButton_Click;
@@ -536,8 +548,6 @@ namespace Carebed.UI
         /// <summary>
         /// Handler for when the user clicks the AlertBanner.
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
         private void AlertBanner_Click(object? sender, EventArgs e)
         {
             // Find the matching alert in the log
@@ -555,8 +565,10 @@ namespace Carebed.UI
                     string alert = item.SubItems[3].Text;
                     string severity = item.SubItems[4].Text;
 
+                    // Configure details string
                     var details = $"Count: {count}\nTime: {time}\nSource: {source}\nAlert Value: {alert}\nSeverity: {severity}";
 
+                    // Show popup
                     var result = ShowAlertPopup(
                         details + "\n\nClear this alert?",
                         MessageBoxButtons.OKCancel,
@@ -571,6 +583,13 @@ namespace Carebed.UI
             }
         }
 
+        /// <summary>
+        /// Handles the click event for the "Clear Alerts" button.
+        /// </summary>
+        /// <remarks>This method clears all items from the alert list, updates the alert count, and
+        /// displays a default message indicating that there are no active alerts.</remarks>
+        /// <param name="sender">The source of the event, typically the "Clear Alerts" button.</param>
+        /// <param name="e">An <see cref="EventArgs"/> instance containing the event data.</param>
         private void ClearAlertsButton_Click(object? sender, EventArgs e)
         {
             alertListView.Items.Clear();
@@ -578,6 +597,11 @@ namespace Carebed.UI
             ShowAlert(new AlertViewModel { AlertText = "No active alerts", IsCritical = false, Source = "" });
         }
 
+        /// <summary>
+        /// Handles the click event for the "Pause Alerts" button.
+        /// </summary>
+        /// <param name="sender">The source of the event, typically the "Pause Alerts" button.</param>
+        /// <param name="e">An <see cref="EventArgs"/> instance containing the event data.</param>
         private void PauseAlertsButton_Click(object? sender, EventArgs e)
         {
             alertsPaused = !alertsPaused;
@@ -616,21 +640,41 @@ namespace Carebed.UI
             }
         }
 
+        /// <summary>
+        /// Handles the click event for the "Vitals" tab button.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void VitalsTabButton_Click(object? sender, EventArgs e)
         {
             mainViewportPanel.BackColor = Color.LightSkyBlue; // Example color for Vitals
         }
 
+        /// <summary>
+        /// Handles the click event for the "Actuators" tab button.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ActuatorsTabButton_Click(object? sender, EventArgs e)
         {
             mainViewportPanel.BackColor = Color.LightGreen; // Example color for Actuators
         }
 
+        /// <summary>
+        /// Handles the click event for the "Logs" tab button.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void LogsTabButton_Click(object? sender, EventArgs e)
         {
             mainViewportPanel.BackColor = Color.LightYellow; // Example color for Logs
         }
 
+        /// <summary>
+        /// Handles the click event for the "Settings" tab button.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void SettingsTabButton_Click(object? sender, EventArgs e)
         {
             mainViewportPanel.BackColor = Color.LightCoral; // Example color for Settings
@@ -739,11 +783,11 @@ namespace Carebed.UI
             alertBannerValueValue.Text = alert.AlertText ?? "";
         }
 
-
-
         #endregion
 
-        // Call this after toggling alertsPaused
+        /// <summary>
+        /// Update the pause status indicator based on the current alert pause state.
+        /// </summary>
         private void UpdatePauseStatusIndicator()
         {
             if (alertsPaused)
@@ -758,6 +802,9 @@ namespace Carebed.UI
             }
         }
 
+        /// <summary>
+        /// Shows a popup dialog with alert details.
+        /// </summary>
         private DialogResult ShowAlertPopup(string details, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
             using (var popup = new SingleAlertPopup(details, buttons, icon))
@@ -767,7 +814,9 @@ namespace Carebed.UI
             }
         }
 
-
+        /// <summary>
+        /// Handler for mouse up event on the alert list view.
+        /// </summary>
         private void AlertListView_MouseUp(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left)
@@ -798,8 +847,10 @@ namespace Carebed.UI
             }
         }
 
-
-
+        /// <summary>
+        /// Removes the specified ListViewItem from the alert list and updates the alert banner accordingly.
+        /// </summary>
+        /// <param name="item"></param>
         private void RemoveAlertListViewItemAndUpdate(ListViewItem item)
         {
             alertListView.Items.Remove(item);
@@ -825,12 +876,18 @@ namespace Carebed.UI
             }
         }
 
-
+        /// <summary>
+        /// Updates the alert count label based on the number of items in the alert list view.
+        /// </summary>
         private void UpdateAlertCount()
         {
             alertCountLabel.Text = $"{alertListView.Items.Count}";
         }
 
+        /// <summary>
+        /// Attach click handlers to all controls in the alert banner for interactivity.
+        /// </summary>
+        /// <param name="control"></param>
         private void AttachAlertBannerClickHandlers(Control control)
         {
             control.Click += AlertBanner_Click;
