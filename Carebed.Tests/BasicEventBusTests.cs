@@ -1,6 +1,7 @@
 ﻿using Carebed.Infrastructure.Enums;
 using Carebed.Infrastructure.EventBus;
 using Carebed.Infrastructure.Message;
+using Carebed.Infrastructure.Message.SensorMessages;
 using Carebed.Infrastructure.MessageEnvelope;
 
 namespace Carebed.Tests.EventBus
@@ -8,31 +9,81 @@ namespace Carebed.Tests.EventBus
     [TestClass]
     public class BasicEventBusTests
     {
+        public TestContext TestContext { get; set; }
+
         [TestMethod]
-        public async Task PublishAsync_InvokesSubscribedHandler_WithEnvelope()
+        public async Task SubscribedHandler_ReceivesPublishedMessage()
         {
-            var bus = new BasicEventBus();
-
-            // TaskCompletionSource to observe asynchronous handler invocation
-            var tcs = new TaskCompletionSource<MessageEnvelope<SensorData>>();
-
-            // Subscribe handler that receives the envelope
-            bus.Subscribe<SensorData>(envelope =>
+            var eventBus = new BasicEventBus();
+            var received = false;
+            SensorData sensorData = new SensorData
             {
-                tcs.TrySetResult(envelope);
+                Value = 25.0,
+                Source = "sensor1",
+                SensorType = SensorTypes.HeartRate,
+                IsCritical = false
+            };
+
+            eventBus.Subscribe<SensorTelemetryMessage>(envelope =>
+            {
+                received = true;
+                Assert.AreEqual("sensor1", envelope.Payload.SensorID);
             });
 
-            // Create payload and envelope
-            var payload = new SensorData(42.5);
-            var envelope = new MessageEnvelope<SensorData>(payload, MessageOriginEnum.SensorManager, MessageTypeEnum.SensorData);
+            var message = new SensorTelemetryMessage { SensorID = "sensor1", TypeOfSensor = SensorTypes.Temperature, Data = sensorData};
+            var envelope = new MessageEnvelope<SensorTelemetryMessage>(message, MessageOrigins.SensorManager, MessageTypes.SensorData);
 
-            // Publish and await completion
-            await bus.PublishAsync(envelope);
+            await eventBus.PublishAsync(envelope);
 
-            // Handler should have received the envelope (awaiting tcs ensures stable assertion even if handler runs async)
-            var received = await tcs.Task;
-            Assert.AreSame(envelope, received);
-            Assert.AreEqual(42.5, received.Payload.Value);
+            Assert.IsTrue(received);
         }
+
+        [TestMethod]
+        public async Task MessagePublished_Event_Is_Raised_For_Any_Message()
+        {
+            // Arrange
+            AbstractEventBus eventBus = new BasicEventBus();
+            bool eventRaised = false;
+            IMessageEnvelope? receivedEnvelope = null;
+
+            TestContext.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Test line - I AM ALIVE!!!");
+
+            Action<IMessageEnvelope> handler = (msg) =>
+            {
+                TestContext.WriteLine("Handler invoked!");
+                eventRaised = true;
+                receivedEnvelope = msg;
+            };
+
+            // Subscribe to the MessagePublished event - capture the envelope when raised
+            eventBus.SubscribeToGlobalMessages(handler);
+
+            var sensorData = new SensorData
+            {
+                Value = 99.9,
+                Source = "sensorX",
+                SensorType = SensorTypes.BloodOxygen,
+                IsCritical = false
+            };
+            var message = new SensorTelemetryMessage
+            {
+                SensorID = "sensorX",
+                TypeOfSensor = SensorTypes.BloodOxygen,
+                Data = sensorData
+            };
+
+            var envelope = new MessageEnvelope<SensorTelemetryMessage>(
+                message, MessageOrigins.SensorManager, MessageTypes.SensorData);
+
+            // Act
+            await eventBus.PublishAsync(envelope);
+
+            // Assert
+            Assert.IsTrue(eventRaised, "MessagePublished event was not raised.");
+            Assert.IsNotNull(receivedEnvelope, "No envelope was received by the event handler.");
+            Assert.AreEqual(envelope, receivedEnvelope, "The received envelope does not match the published envelope.");
+        }
+        
+
     }
 }

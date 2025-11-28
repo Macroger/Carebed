@@ -1,10 +1,4 @@
-namespace Carebed
+namespace Carebed.UI
 {
-    public partial class MainDashboard : Form
-    {
-        public MainDashboard()
-        {
-            InitializeComponent();
-        }
-    }
+
 }

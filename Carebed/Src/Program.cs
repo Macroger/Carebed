@@ -1,6 +1,8 @@
 using System;
 using System.Windows.Forms;
+using Carebed.Infrastructure;
 using Carebed.Infrastructure.EventBus;
+using Carebed.Managers;
 
 namespace Carebed.src
 {
@@ -16,9 +18,8 @@ namespace Carebed.src
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
 
-            // Create and initialize shared services
-            var eventBus = new BasicEventBus();
-            eventBus.Initialize();
+            // I need a tuple to contain eventBus and a list of IManagers.
+            var (eventBus, managers, mainDashboard) = SystemInitializer.Initialize();
 
             // Optional: global exception hooks for UI/background threads
             Application.ThreadException += (s, e) =>
@@ -30,9 +31,6 @@ namespace Carebed.src
                 // TODO: log e.Exception
                 e.SetObserved();
             };
-
-            // Pass dependencies into the main form
-            using var mainDashboard = new MainDashboard(eventBus);
 
             // When the form closes we can shutdown services
             mainDashboard.FormClosed += (s, e) => eventBus.Shutdown();

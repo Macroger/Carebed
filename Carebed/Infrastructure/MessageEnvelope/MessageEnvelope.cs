@@ -10,6 +10,7 @@ namespace Carebed.Infrastructure.MessageEnvelope
     /// </remarks>
     public class MessageEnvelope<T> : IMessageEnvelope
     {
+        #region Fields and Properties
         /// <summary>
         /// Unique identifier for the message envelope.
         /// </summary>
@@ -23,12 +24,12 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// <summary>
         /// Origin of the message.
         /// </summary>
-        public MessageOriginEnum MessageOrigin { get; }
+        public MessageOrigins MessageOrigin { get; }
 
         /// <summary>
         /// Message type of the payload.
         /// </summary>
-        public MessageTypeEnum MessageType { get; }
+        public MessageTypes MessageType { get; }
 
         /// <summary>
         /// The actual payload of the message.
@@ -41,7 +42,11 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// can access it like a IMessageEnvelope if we don't know the type T at compile time.<br/>
         /// <br/>Otherwise one can access the strongly typed Payload property.
         /// </summary>
-        object IMessageEnvelope.Payload => Payload;
+        object IMessageEnvelope.Payload => Payload!;
+
+        #endregion
+
+        #region Methods and Constructors
 
         /// <summary>
         /// This constructor initializes a new instance of the MessageEnvelope class.
@@ -52,8 +57,8 @@ namespace Carebed.Infrastructure.MessageEnvelope
         /// <exception cref="ArgumentNullException"></exception>
         public MessageEnvelope(
             T payload,
-            MessageOriginEnum origin,
-            MessageTypeEnum type = MessageTypeEnum.Undefined)
+            MessageOrigins origin,
+            MessageTypes type = MessageTypes.Undefined)
         {
             // Validate and assign properties
 
@@ -74,5 +79,17 @@ namespace Carebed.Infrastructure.MessageEnvelope
             return $"[{Timestamp:O}] {MessageOrigin}::{MessageType} " +
                    $"(Id={MessageId}, PayloadType={typeof(T).Name})";
         }
+
+        public void Dispose()
+        {
+            // If T implements IDisposable, dispose of it
+            if (Payload is IDisposable disposablePayload)
+            {
+                disposablePayload.Dispose();
+            }
+            // Suppress finalization
+            GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 }

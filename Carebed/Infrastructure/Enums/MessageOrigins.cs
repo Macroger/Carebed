@@ -4,7 +4,7 @@
     /// Indicates which module originated the message.
     /// Extend this enum as new modules are added.
     /// </summary>
-    public enum MessageOriginEnum
+    public enum MessageOrigins
     {
         Unknown = 0,
         SensorManager,

@@ -1,12 +1,46 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Carebed.Infrastructure.Enums;
 
 namespace Carebed.Managers
 {
-    internal class DisplayManager
+    internal class DisplayManager : IManager
     {
+        private readonly LoggingManager _loggingManager;
+
+        public DisplayManager(LoggingManager loggingManager)
+        {
+            _loggingManager = loggingManager;
+        }
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Start()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Stop()
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Call this when you render patient/sensor data to the GUI.
+        /// It logs the same payload so file output matches what's shown.
+        /// </summary>
+        public void ShowPatientData<T>(T patientDto)
+        {
+            // TODO: update the UI here (this method is the hook point).
+            // Log the payload using the project LoggingManager singleton.
+            _loggingManager.Log(
+                MessageOrigins.DisplayManager,
+                MessageTypes.System,
+                "Display updated",
+                patientDto,
+                Infrastructure.Enums.LogLevelEnum.Info
+            );
+        }
     }
 }

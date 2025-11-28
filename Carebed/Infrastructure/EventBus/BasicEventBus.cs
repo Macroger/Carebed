@@ -30,6 +30,10 @@ namespace Carebed.Infrastructure.EventBus
         /// </summary>
         public override async Task PublishAsync<TPayload>(MessageEnvelope<TPayload> message)
         {
+            // Notify all global handlers (Action<IMessageEnvelope>)
+            NotifyAll(message);
+
+            // Get handlers for this specific message type
             var handlers = GetHandlersFor<TPayload>();
 
             if (handlers == null || handlers.Count == 0)
@@ -55,6 +59,8 @@ namespace Carebed.Infrastructure.EventBus
                     }
                 }));
             }
+
+
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
         }

@@ -14,6 +14,8 @@ namespace Carebed.Infrastructure.EventBus
     /// </remarks>
     public abstract class AbstractEventBus : IEventBus
     {
+        private readonly List<Action<IMessageEnvelope>> _globalHandlers = new();
+
         /// <summary>
         /// Internal registry of message subscribers, keyed by message type.
         /// </summary>
@@ -26,6 +28,39 @@ namespace Carebed.Infrastructure.EventBus
         /// Synchronization object used to ensure thread-safe access to the subscriber registry.
         /// </summary>
         protected readonly object _lock = new();
+
+        public void SubscribeToGlobalMessages(Action<IMessageEnvelope> handler)
+        {
+            lock (_lock)
+            {
+                _globalHandlers.Add(handler);
+            }
+
+            System.Diagnostics.Debug.WriteLine($"Global handler count: {_globalHandlers.Count}");
+        }
+
+        public void UnsubscribeFromGlobalMessages(Action<IMessageEnvelope> handler)
+        {
+            lock (_lock)
+            {
+                _globalHandlers.Remove(handler);
+            }
+        }
+
+        protected void NotifyAll(IMessageEnvelope envelope)
+        {
+            System.Diagnostics.Debug.WriteLine($"Notifying global handlers [{_globalHandlers.Count}]");
+            List<Action<IMessageEnvelope>> handlersCopy;
+            lock (_lock)
+            {
+                handlersCopy = _globalHandlers.ToList();
+            }
+            foreach (var handler in handlersCopy)
+            {
+                try { handler(envelope); }
+                catch { /* Optionally log or ignore */ }
+            }
+        }
 
         /// <summary>
         /// Subscribes a handler to a specific message type.
