@@ -1,11 +1,11 @@
-using System.Threading.Tasks;
+using Carebed.Infrastructure.Message;
 
 namespace Carebed.Infrastructure.Logging
 {
-    internal interface ILoggingService
+    public interface ILoggingService
     {
-        void Log(LogMessage message);
-        Task StartAsync();
-        Task StopAsync();
+        public void Log(IEventMessage message);
+        public Task StartAsync();
+        public Task StopAsync();
     }
 }
