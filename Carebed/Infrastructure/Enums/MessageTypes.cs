@@ -21,7 +21,8 @@
         ActuatorInventory,
         SensorInventory,
         SensorError,
-        SensorStatus
+        SensorStatus,
+        LoggerCommandResponse
         // Add more as needed
     }
 

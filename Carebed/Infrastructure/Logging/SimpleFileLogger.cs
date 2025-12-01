@@ -1,4 +1,5 @@
 using Carebed.Infrastructure.Message;
+using Carebed.Infrastructure.MessageEnvelope;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -9,9 +10,9 @@ namespace Carebed.Infrastructure.Logging
     /// </summary>
     /// <remarks>This logger supports asynchronous logging by enqueuing messages and processing them in the
     /// background. It ensures thread safety and optimizes I/O performance by batching writes. The logger must be
-    /// started using <see cref="StartAsync"/> before logging messages and should be stopped using <see
-    /// cref="StopAsync"/> or disposed via <see cref="Dispose"/> to release resources properly.</remarks>
-    public class SimpleFileLogger : ILoggingService, IDisposable
+    /// started using <see cref="Start"/> before logging messages and should be stopped using <see
+    /// cref="Stop"/> or disposed via <see cref="Dispose"/> to release resources properly.</remarks>
+    public class SimpleFileLogger : IFileLoggingService, IDisposable
     {
         #region Fields and Properties
 
@@ -21,7 +22,7 @@ namespace Carebed.Infrastructure.Logging
         private bool _started;
 
         // Queue for log messages
-        private readonly ConcurrentQueue<IEventMessage> _queue = new();
+        private readonly ConcurrentQueue<IMessageEnvelope> _queue = new();
 
         // Cancellation token for the background worker - used to stop processing
         private CancellationTokenSource? _cts;
@@ -53,8 +54,9 @@ namespace Carebed.Infrastructure.Logging
         /// <param name="newFilePath">The new file path to be used. Cannot be <see langword="null"/>.</param>
         /// <exception cref="InvalidOperationException">Thrown if the logger has already been started.</exception>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="newFilePath"/> is <see langword="null"/>.</exception>
-        public void ChangeFilePath(string newFilePath)
+        public bool ChangeFilePath(string newFilePath)
         {
+            bool result = false;
             lock (_sync)
             {
                 if (_started)
@@ -62,14 +64,16 @@ namespace Carebed.Infrastructure.Logging
                     throw new InvalidOperationException("Cannot change file path while logger is started.");
                 }
                 _filePath = newFilePath ?? throw new ArgumentNullException(nameof(newFilePath));
+                result = true;
             }
+            return result;
         }
 
         /// <summary>
         /// Starts the logger by initializing the file stream and background worker.
         /// </summary>
         /// <returns></returns>
-        public Task StartAsync()
+        public Task Start()
         {
             // Synchron - ensure only one start operation at a time
             lock (_sync)
@@ -101,7 +105,7 @@ namespace Carebed.Infrastructure.Logging
         /// Stops the logger by cancelling the background worker and flushing remaining messages.
         /// </summary>
         /// <returns></returns>
-        public Task StopAsync()
+        public Task Stop()
         {
             lock (_sync)
             {
@@ -135,18 +139,18 @@ namespace Carebed.Infrastructure.Logging
         /// </summary>
         public void Dispose()
         {
-            StopAsync().GetAwaiter().GetResult();
+            Stop().GetAwaiter().GetResult();
         }
 
         /// <summary>
         /// Logs an event message by enqueueing it for background processing.
         /// Places the message into a concurrent queue to be processed by the background worker.
         /// </summary>
-        /// <param name="message"></param>
-        public void Log(IEventMessage message)
+        /// <param name="envelope"></param>
+        public void Log(IMessageEnvelope envelope)
         {
             // Check for null message
-            if (message == null) return;
+            if (envelope == null) return;
 
             // Ensure logger is started by checking _started flag
             if (!_started)
@@ -154,18 +158,27 @@ namespace Carebed.Infrastructure.Logging
                 // Attempt to start the logger synchronously
                 try
                 {
-                    StartAsync().GetAwaiter().GetResult();
+                    Start().GetAwaiter().GetResult();
                 }
                 catch
                 {
-                    // If starting fails, silently return without logging
-                    // This prevents exceptions from propagating in logging
-                    return;
+                    throw new InvalidOperationException("Logger is not started and could not be started.");
                 }
             }
-            _queue.Enqueue(message);
+            _queue.Enqueue(envelope);
         }
 
+        /// <summary>
+        /// Asynchronously handles a log message by enqueuing it for background processing.
+        /// Should prevent bottlenecking the calling thread.
+        /// </summary>
+        /// <param name="envelope"></param>
+        /// <returns></returns>
+        public Task HandleLogAsync(IMessageEnvelope envelope)
+        {
+            Log(envelope);
+            return Task.CompletedTask;
+        }
 
         #endregion
 
@@ -193,9 +206,9 @@ namespace Carebed.Infrastructure.Logging
 
                 // Dequeue and write all available messages
                 // Dequeue just means to remove from the queue
-                while (_queue.TryDequeue(out var msg))
+                while (_queue.TryDequeue(out var envelope))
                 {
-                    WriteLogLine(msg);
+                    WriteLogLine(envelope);
                     wrote = true;
                 }
 
@@ -226,23 +239,21 @@ namespace Carebed.Infrastructure.Logging
         /// Writes a single log line to the file.
         /// </summary>
         /// <param name="message"></param>
-        private void WriteLogLine(IEventMessage message)
+        private void WriteLogLine(IMessageEnvelope envelope)
         {
             string line;
             try
             {
-                var logObject = new
-                {
-                    Type = message.GetType().Name,
-                    Message = message
+                var opts = new JsonSerializerOptions { 
+                    WriteIndented = false,
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
                 };
-
-                var opts = new JsonSerializerOptions { WriteIndented = false };
-                line = JsonSerializer.Serialize(logObject, opts);
+                line = JsonSerializer.Serialize(envelope, opts);
             }
             catch
             {
-                line = $"{{\"Timestamp\":\"{message.CreatedAt:O}\",\"CorrelationId\":\"{message.CorrelationId}\"}}";
+                // Fallback: log minimal info if serialization fails
+                line = $"{{\"MessageId\":\"{envelope.MessageId}\",\"Timestamp\":\"{envelope.Timestamp:O}\"}}";
             }
 
             lock (_sync)
