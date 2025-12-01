@@ -7,5 +7,6 @@ namespace Carebed.Infrastructure.Message.AlertMessages
     /// <typeparam name="TPayload"></typeparam>
     public class AlertClearMessage<TPayload> : AlertBaseMessage<TPayload> where TPayload : IEventMessage
     {
+        public int alertNumber { get; set; }
     }
 }

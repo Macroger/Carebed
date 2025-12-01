@@ -9,15 +9,14 @@ using Carebed.Infrastructure.MessageEnvelope;
 
 namespace Carebed.Managers
 {
-    /// <summary>
-    /// Manager responsible for handling alerts from sensors and actuators, tracking active alerts, and sending alert messages to the UI layer.
-    /// Now subscribes to raw sensor/actuator messages and republishes AlertActionMessage<T> when an alert condition is detected.
-    /// </summary>
     public class AlertManager : IManager
     {
         #region Fields
 
         private readonly IEventBus _eventBus;
+
+        // Alert sequence counter
+        private int _alertSequence = 0;
 
         //tracks the current active alerts per sensor
         private readonly Dictionary<string, IEventMessage> _activeSensorAlerts = new();
@@ -87,7 +86,6 @@ namespace Carebed.Managers
             }
             else if (payload is SensorTelemetryMessage telemetry)
             {
-                // telemetry contains SensorData which may mark critical
                 if (telemetry.Data != null && telemetry.Data.IsCritical)
                     isAlert = true;
             }
@@ -95,8 +93,6 @@ namespace Carebed.Managers
             if (!isAlert) return;
 
             var sensorId = payload.SensorID ?? "Unknown";
-
-            // track active alert per sensor origin
             var origin = envelope.MessageOrigin == 0 ? MessageOrigins.SensorManager : envelope.MessageOrigin;
 
             var activeDict = _activeAlerts.ContainsKey(origin) ? _activeAlerts[origin] : null;
@@ -115,7 +111,8 @@ namespace Carebed.Managers
             {
                 Source = sensorId,
                 AlertText = payload is SensorErrorMessage err ? err.Description : (payload is SensorTelemetryMessage tel ? $"{tel.Data?.Value:F2}" : "Sensor alert"),
-                Payload = payload
+                Payload = payload,
+                alertNumber = ++_alertSequence
             };
 
             var alertEnvelope = new MessageEnvelope<AlertActionMessage<T>>(alertAction, MessageOrigins.AlertManager, MessageTypes.AlertAction);
@@ -155,17 +152,14 @@ namespace Carebed.Managers
             {
                 Source = actuatorId,
                 AlertText = payload is ActuatorErrorMessage err ? err.Description : "Actuator alert",
-                Payload = payload
+                Payload = payload,
+                alertNumber = ++_alertSequence
             };
 
             var alertEnvelope = new MessageEnvelope<AlertActionMessage<T>>(alertAction, MessageOrigins.AlertManager, MessageTypes.AlertAction);
             _ = _eventBus.PublishAsync(alertEnvelope);
         }
 
-        /// <summary>
-        /// Handles alert clear messages from the UI. Clears alert from local registry, then publishes confirmation messages back to the eventBus for the UI to pick up.
-        /// If no matching alert is found, publishes a negative acknowledgment indicating that it was unable to find the alert.
-        /// </summary>
         private void HandleAlertClear(MessageEnvelope<AlertClearMessage<IEventMessage>> envelope)
         {
             bool alertNotFound = false;
@@ -179,7 +173,7 @@ namespace Carebed.Managers
                 if (_activeAlerts.TryGetValue(MessageOrigins.SensorManager, out var dict) && dict.TryGetValue(sensorId, out var _))
                 {
                     dict.Remove(sensorId);
-                    var ack = new AlertClearAckMessage { Source = sensorId, CorrelationId = message.Payload.CorrelationId };
+                    var ack = new AlertClearAckMessage { Source = sensorId, CorrelationId = message.Payload.CorrelationId, alertNumber = message.alertNumber };
                     var ackEnv = new MessageEnvelope<AlertClearAckMessage>(ack, MessageOrigins.AlertManager, MessageTypes.AlertClearAck);
                     _ = _eventBus.PublishAsync(ackEnv);
                 }
@@ -194,7 +188,7 @@ namespace Carebed.Managers
                 if (_activeAlerts.TryGetValue(MessageOrigins.ActuatorManager, out var dict) && dict.TryGetValue(actId, out var _))
                 {
                     dict.Remove(actId);
-                    var ack = new AlertClearAckMessage { Source = actId, CorrelationId = message.Payload.CorrelationId };
+                    var ack = new AlertClearAckMessage { Source = actId, CorrelationId = message.Payload.CorrelationId, alertNumber = message.alertNumber };
                     var ackEnv = new MessageEnvelope<AlertClearAckMessage>(ack, MessageOrigins.AlertManager, MessageTypes.AlertClearAck);
                     _ = _eventBus.PublishAsync(ackEnv);
                 }
@@ -206,7 +200,7 @@ namespace Carebed.Managers
 
             if (alertNotFound)
             {
-                var notFoundAck = new AlertClearAckMessage { Source = message.Source, CorrelationId = message.Payload.CorrelationId, alertCleared = false };
+                var notFoundAck = new AlertClearAckMessage { Source = message.Source, CorrelationId = message.Payload.CorrelationId, alertCleared = false, alertNumber = message.alertNumber };
                 var notFoundEnv = new MessageEnvelope<AlertClearAckMessage>(notFoundAck, MessageOrigins.AlertManager, MessageTypes.AlertClearAck);
                 _ = _eventBus.PublishAsync(notFoundEnv);
             }
@@ -218,17 +212,14 @@ namespace Carebed.Managers
 
         public void Start()
         {
-            // Subscribe to concrete sensor messages
             _eventBus.Subscribe(_sensorTelemetryHandler);
             _eventBus.Subscribe(_sensorStatusHandler);
             _eventBus.Subscribe(_sensorErrorHandler);
 
-            // Subscribe to concrete actuator messages
             _eventBus.Subscribe(_actuatorTelemetryHandler);
             _eventBus.Subscribe(_actuatorStatusHandler);
             _eventBus.Subscribe(_actuatorErrorHandler);
 
-            // Subscribe to alert clear messages from UI
             _eventBus.Subscribe(_uiAlertClearActionHandler);
         }
 

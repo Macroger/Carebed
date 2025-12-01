@@ -11,6 +11,8 @@
             Payload = null;
         }
 
+        public int alertNumber { get; set; }
+
         public bool alertCleared = true;
     }
 }

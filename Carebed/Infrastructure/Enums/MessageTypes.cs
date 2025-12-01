@@ -10,6 +10,7 @@
         Undefined = 0,
         SensorData,
         Alert,
+        AlertClear,
         ActuatorCommand,
         ActuatorCommandAck,
         ActuatorStatus,
