@@ -23,29 +23,29 @@ namespace Carebed.UI
         /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        #region Fields and Properties
+            #region Fields and Properties
         
-        // A reference to the event bus for publishing and subscribing to events.        
-        private readonly IEventBus _eventBus;
+            // A reference to the event bus for publishing and subscribing to events.        
+            private readonly IEventBus _eventBus;
 
-        // A single AlertViewModel instance for databinding
-        private AlertViewModel alertViewModel = new AlertViewModel();
+            // A single AlertViewModel instance for databinding
+            private AlertViewModel alertViewModel = new AlertViewModel();
 
-        // A databinding source for alert banner
-        private BindingSource alertBindingSource = new BindingSource();
+            // A databinding source for alert banner
+            private BindingSource alertBindingSource = new BindingSource();
 
-        // Flag to indicate if alerts are paused
-        private bool alertsPaused = false;
+            // Flag to indicate if alerts are paused
+            private bool alertsPaused = false;
 
-        // Sensor alert handlers
-        private Action<MessageEnvelope<AlertActionMessage<SensorTelemetryMessage>>>? _alertHandlerSensorTelemetry;
-        private Action<MessageEnvelope<AlertActionMessage<SensorStatusMessage>>>? _alertHandlerSensorStatus;
-        private Action<MessageEnvelope<AlertActionMessage<SensorErrorMessage>>>? _alertHandlerSensorError;
+            // Sensor alert handlers
+            private Action<MessageEnvelope<AlertActionMessage<SensorTelemetryMessage>>>? _alertHandlerSensorTelemetry;
+            private Action<MessageEnvelope<AlertActionMessage<SensorStatusMessage>>>? _alertHandlerSensorStatus;
+            private Action<MessageEnvelope<AlertActionMessage<SensorErrorMessage>>>? _alertHandlerSensorError;
 
-        // Actuator alert handlers
-        private Action<MessageEnvelope<AlertActionMessage<ActuatorTelemetryMessage>>>? _alertHandlerActuatorTelemetry;
-        private Action<MessageEnvelope<AlertActionMessage<ActuatorStatusMessage>>>? _alertHandlerActuatorStatus;
-        private Action<MessageEnvelope<AlertActionMessage<ActuatorErrorMessage>>>? _alertHandlerActuatorError;
+            // Actuator alert handlers
+            private Action<MessageEnvelope<AlertActionMessage<ActuatorTelemetryMessage>>>? _alertHandlerActuatorTelemetry;
+            private Action<MessageEnvelope<AlertActionMessage<ActuatorStatusMessage>>>? _alertHandlerActuatorStatus;
+            private Action<MessageEnvelope<AlertActionMessage<ActuatorErrorMessage>>>? _alertHandlerActuatorError;
 
         // Sensor grid for displaying telemetry data
         private DataGridView sensorGridView;
@@ -851,9 +851,86 @@ namespace Carebed.UI
         /// <param name="e"></param>
         private void SettingsTabButton_Click(object? sender, EventArgs e)
         {
-            logFileTimer.Stop();
-            HideSensorGrid();
-            mainViewportPanel.BackColor = Color.LightCoral; // Example color for Settings
+            // 1. Clear the panel
+            mainViewportPanel.Controls.Clear();
+            mainViewportPanel.BackColor = Color.DarkGray;
+
+            
+            Label titleLabel = new Label
+            {
+                Text = "Settings",
+                Font = new Font("Segoe UI", 18, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(40, 30)
+            };
+
+            
+            Label pollingLabel = new Label
+            {
+                Text = "Adjust Polling Rate (0-60s):",
+                Font = new Font("Segoe UI", 12, FontStyle.Regular),
+                AutoSize = true,
+                // Y=100 puts it comfortably below the Title
+                Location = new Point(40, 100)
+            };
+
+            NumericUpDown pollingInput = new NumericUpDown
+            {
+                Minimum = 1,
+                Maximum = 60,
+                Increment = 1,
+                Font = new Font("Segoe UI", 12, FontStyle.Regular),
+                Width = 80,
+                
+                Location = new Point(350, 96)
+            };
+
+            Button saveButton = new Button
+            {
+                Text = "Apply Settings",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Size = new Size(180, 45),
+                BackColor = Color.LightGray, // Disabled initially
+                ForeColor = Color.DarkGray,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Default,
+                Enabled = false,
+                // MOVED UP: Directly below the Polling Rate line
+                Location = new Point(40, 150)
+            };
+
+            Button powerOffButton = new Button
+            {
+                Text = "Shut Down System",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Size = new Size(180, 45),
+                BackColor = Color.Crimson,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                
+                Location = new Point(40, 230)
+            };
+
+            powerOffButton.Click += (s, args) =>
+            {
+                if (MessageBox.Show("Are you sure you want to shut down?", "Power Off",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+                {
+                    Application.Exit();
+                }
+            };
+
+
+
+
+
+
+            mainViewportPanel.Controls.Add(powerOffButton);
+            mainViewportPanel.Controls.Add(titleLabel);
+            mainViewportPanel.Controls.Add(pollingLabel);
+            mainViewportPanel.Controls.Add(pollingInput);
+            mainViewportPanel.Controls.Add(saveButton);
         }
 
         /// <summary>
