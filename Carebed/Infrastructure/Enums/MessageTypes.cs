@@ -10,6 +10,7 @@
         Undefined = 0,
         SensorData,
         Alert,
+        AlertClear,
         ActuatorCommand,
         ActuatorCommandAck,
         ActuatorStatus,
@@ -19,9 +20,12 @@
         AlertAction,
         AlertClearAck,
         ActuatorInventory,
+        SensorCommand,
+        SensorCommandAck,
         SensorInventory,
         SensorError,
-        SensorStatus
+        SensorStatus,
+        LoggerCommandResponse
         // Add more as needed
     }
 
