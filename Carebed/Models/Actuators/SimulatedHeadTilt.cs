@@ -87,14 +87,73 @@ namespace Carebed.Models.Actuators
             if (_currentMotion == ActuatorCommands.Raise)
             {
                 _angle = Math.Min(30.0, _angle + delta);
+                if (_angle >= 30.0)
+                {
+                    _currentMotion = null;
+                    _moveTimestamp = null;
+                    TryTransition(ActuatorStates.Completed);
+                }
             }
             else if (_currentMotion == ActuatorCommands.Lower)
             {
                 _angle = Math.Max(-30.0, _angle - delta);
+                if (_angle <= -30.0)
+                {
+                    _currentMotion = null;
+                    _moveTimestamp = null;
+                    TryTransition(ActuatorStates.Completed);
+                }
+            }
+            else
+            {
+                // If not moving, clear motion/timestamp and go Idle
+                _currentMotion = null;
+                _moveTimestamp = null;
+                TryTransition(ActuatorStates.Idle);
             }
 
+            // Reset timestamp so subsequent telemetry increments from now
             _moveTimestamp = DateTime.UtcNow;
         }
+
+        //private void UpdatePosition()
+        //{
+        //    if (!_moveTimestamp.HasValue || !_currentMotion.HasValue)
+        //        return;
+
+        //    var seconds = (DateTime.UtcNow - _moveTimestamp.Value).TotalSeconds;
+        //    var delta = seconds * _speedPercentPerSecond;
+
+        //    if (_currentMotion == ActuatorCommands.Raise)
+        //    {
+        //        _position = Math.Min(100.0, _position + delta);
+        //        if (_position >= 100.0)
+        //        {
+        //            _currentMotion = null;
+        //            _moveTimestamp = null;
+        //            TryTransition(ActuatorStates.Completed);
+        //        }
+        //    }
+        //    else if (_currentMotion == ActuatorCommands.Lower)
+        //    {
+        //        _position = Math.Max(0.0, _position - delta);
+        //        if (_position <= 0.0)
+        //        {
+        //            _currentMotion = null;
+        //            _moveTimestamp = null;
+        //            TryTransition(ActuatorStates.Completed);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        // If not moving, clear motion/timestamp
+        //        _currentMotion = null;
+        //        _moveTimestamp = null;
+        //    }
+
+        //    // reset timestamp so subsequent telemetry increments from now
+        //    _moveTimestamp = DateTime.UtcNow;
+        //}
 
         public override ActuatorTelemetryMessage GetTelemetry()
         {

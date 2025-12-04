@@ -15,6 +15,7 @@ using System.Linq;
 using System.Windows.Forms;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Windows.Forms.DataVisualization.Charting;
+using System.Drawing;
 
 namespace Carebed.UI
 {
@@ -66,6 +67,10 @@ namespace Carebed.UI
         private readonly Dictionary<string, Label> actuatorStatusLabels = new();
         // Map actuator id -> toggle button (for binary actuators like lamp)
         private readonly Dictionary<string, Button> actuatorToggleButtons = new();
+        // Map actuator id -> icon picture box
+        private readonly Dictionary<string, PictureBox> actuatorIconBoxes = new();
+        // Map actuator id -> card panel
+        private readonly Dictionary<string, Panel> actuatorCards = new();
 
         // Cache last-known actuator states so UI can be initialized correctly when rebuilding the panel
         private readonly Dictionary<string, ActuatorStates> _actuatorStates = new();
@@ -82,6 +87,8 @@ namespace Carebed.UI
 
         // Panel that will host actuators UI when Actuators tab is active
         private Panel actuatorsPanel;
+        // Inner grid for actuator cards
+        private FlowLayoutPanel actuatorsGrid;
 
         // Alert Clear Ack handler
         private Action<MessageEnvelope<AlertClearAckMessage>>? _alertClearAckHandler;
@@ -200,6 +207,12 @@ namespace Carebed.UI
         private FlowLayoutPanel chartsFlowPanel;
         private Dictionary<string, Chart> sensorCharts = new();
 
+        #endregion
+
+        #region Actuator Controls
+        // Add these fields near the other UI fields (e.g. next to actuatorsPanel / actuatorsGrid)
+        private Label? actuatorsRefreshLabel;
+        private Panel? actuatorsRefreshHolder;
         #endregion
 
         #endregion
@@ -759,8 +772,8 @@ namespace Carebed.UI
                 ReadOnly = true,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
-                // Use Fill mode so one column can take remaining space
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                // Use None so we control widths and allow horizontal scrollbar when total width > control width
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
                 BackgroundColor = Color.Black,
                 ForeColor = Color.LightGreen,
                 ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize,
@@ -776,11 +789,12 @@ namespace Carebed.UI
                 {
                     WrapMode = DataGridViewTriState.False
                 },
-                ScrollBars = ScrollBars.Both, // allow horizontal scrollbar when needed (min widths respected)
-                MultiSelect = false
+                ScrollBars = ScrollBars.Both,
+                MultiSelect = false,
+                AllowUserToResizeColumns = true
             };
 
-            // Columns
+            // Columns (same as before)
             logGridView.Columns.Add("MessageId", "MessageId");
             logGridView.Columns.Add("Timestamp", "Timestamp");
             logGridView.Columns.Add("Source", "Source");
@@ -788,8 +802,7 @@ namespace Carebed.UI
             logGridView.Columns.Add("Message", "Message");
             logGridView.Columns["MessageId"].Visible = false;
 
-            // Configure preferred fixed widths and minimums for the non-message columns.
-            // The Message column will be set to Fill so it expands to consume remaining space.
+            // fixed widths for the non-message columns
             logGridView.Columns["Timestamp"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             logGridView.Columns["Timestamp"].Width = 180;
             logGridView.Columns["Timestamp"].MinimumWidth = 120;
@@ -802,10 +815,21 @@ namespace Carebed.UI
             logGridView.Columns["Type"].Width = 120;
             logGridView.Columns["Type"].MinimumWidth = 100;
 
-            // Message column should expand to fill remaining space
-            logGridView.Columns["Message"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            // Message column controlled dynamically (initial minimum)
             logGridView.Columns["Message"].MinimumWidth = 300;
-            logGridView.Columns["Message"].FillWeight = 200f; // give it higher weight so it dominates available space
+            // Let the DataGridView fill remaining space for the Message column:
+            logGridView.Columns["Message"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            // Optional: control relative share if you add other Fill columns later
+            logGridView.Columns["Message"].FillWeight = 100;
+
+
+            // ensure we adjust when sizes change
+            logGridView.SizeChanged += (s, e) => AdjustLogMessageColumnWidth();
+            if (mainViewportPanel != null)
+                mainViewportPanel.Resize += (s, e) => AdjustLogMessageColumnWidth();
+
+            // call once to initialize column widths
+            AdjustLogMessageColumnWidth();
 
             // build toolbar controls but DO NOT add them to any parent here
             logTypeFilterComboBox = new ComboBox
@@ -879,8 +903,9 @@ namespace Carebed.UI
             // toolbar container hosts the left flow and right flow so they appear on the same row
             logToolbarContainer = new Panel
             {
-                Dock = DockStyle.Fill,
-                AutoSize = true
+                Dock = DockStyle.Top,   // TOP so it sizes to its content and doesn't steal the Fill area
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink
             };
             // add left flow (fills remaining) and right flow (docked right)
             logButtonPanel.Dock = DockStyle.Fill;
@@ -1096,10 +1121,88 @@ namespace Carebed.UI
                         envelope.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
                         envelope.MessageOrigin.ToString(),
                         envelope.MessageType.ToString(),
-                        envelope.Payload?.ToString() ?? ""
+                        GetReadableEnvelopeMessage(envelope)
                         );
                 }
             });
+        }
+
+        // Create a concise, human-readable representation of the envelope payload.
+        // Uses typed checks where available and reflection as a fallback so the UI shows
+        // meaningful text instead of type names like "AlertActionMessage`1[...]".
+        private string GetReadableEnvelopeMessage(IMessageEnvelope envelope)
+        {
+            if (envelope == null) return string.Empty;
+            var payload = envelope.Payload;
+            if (payload == null) return string.Empty;
+
+            try
+            {
+                // Sensor telemetry
+                if (payload is SensorTelemetryMessage stm)
+                {
+                    string value = stm.Data != null ? stm.Data.Value.ToString() : "(no value)";
+                    string type = stm.GetType().Name.Replace("Message", "");
+                    return $"Sensor: {type}, Value: {value}";
+                }
+                // Sensor status
+                if (payload is SensorStatusMessage ssm)
+                {
+                    string type = ssm.GetType().Name.Replace("Message", "");
+                    return $"Sensor: {type}, State: {ssm.CurrentState}";
+                }
+                // Sensor error
+                if (payload is SensorErrorMessage sem)
+                {
+                    return $"Sensor Error: {sem.ErrorCode}, {sem.Description}, State: {sem.CurrentState}";
+                }
+                // Actuator telemetry
+                if (payload is ActuatorTelemetryMessage atm)
+                {
+                    string type = atm.TypeOfActuator.ToString();
+                    string state = atm.ErrorCode ?? "";
+                    string details = $"Actuator: {type}";
+                    if (atm.Position != null) details += $", Pos: {atm.Position}";
+                    if (atm.Temperature != null) details += $", Temp: {atm.Temperature:F1}°C";
+                    if (atm.Watts != null) details += $", Watts: {atm.Watts:F1}";
+                    if (!string.IsNullOrEmpty(state)) details += $", State: {state}";
+                    return details;
+                }
+                // Actuator status
+                if (payload is ActuatorStatusMessage asm)
+                {
+                    string type = asm.TypeOfActuator.ToString();
+                    return $"Actuator: {type}, State: {asm.CurrentState}, Msg: {asm.Message}";
+                }
+                // Actuator error
+                if (payload is ActuatorErrorMessage aem)
+                {
+                    string type = aem.TypeOfActuator.ToString();
+                    return $"Actuator Error: {type}, Code: {aem.ErrorCode}, {aem.Description}, State: {aem.CurrentState}";
+                }
+
+                // Fallback: try to use AlertText, Message, or ToString
+                var t = payload.GetType();
+                var alertProp = t.GetProperty("AlertText");
+                if (alertProp != null)
+                {
+                    var at = alertProp.GetValue(payload) as string;
+                    if (!string.IsNullOrWhiteSpace(at))
+                        return at;
+                }
+                var msgProp = t.GetProperty("Message");
+                if (msgProp != null)
+                {
+                    var mt = msgProp.GetValue(payload)?.ToString();
+                    if (!string.IsNullOrWhiteSpace(mt))
+                        return mt;
+                }
+                return payload.ToString() ?? string.Empty;
+            }
+            catch
+            {
+                return payload.GetType().Name;
+            }
         }
 
         /// <summary>
@@ -1429,8 +1532,62 @@ namespace Carebed.UI
             // Mark tab active so handlers will update UI
             actuatorsTabActive = true;
 
-            // Build UI from known actuators (populated via ActuatorInventoryMessage)
-            PopulateActuatorsPanel();
+            // Request a fresh actuator inventory from the system so we get a current list
+            // (this will cause ActuatorManager to emit an ActuatorInventoryMessage which the
+            // existing HandleActuatorInventory will merge into _availableActuators and call PopulateActuatorsPanel).
+            try
+            {
+                var requestCmd = new ActuatorCommandMessage
+                {
+                    CommandType = ActuatorCommands.EmitActuatorInventory,
+                    ActuatorId = "ActuatorManager",
+                    TypeOfActuator = ActuatorTypes.Manager
+                };
+                var requestEnvelope = new MessageEnvelope<ActuatorCommandMessage>(
+                    requestCmd,
+                    MessageOrigins.DisplayManager,
+                    MessageTypes.ActuatorCommand
+                );
+                _ = _eventBus.PublishAsync(requestEnvelope);
+            }
+            catch
+            {
+                // swallow — inventory request is best-effort
+            }
+
+            // Show a "Refreshing..." indicator while waiting for inventory if we have no cached actuators.
+            if (_availableActuators.Count == 0)
+            {
+                if (actuatorsRefreshLabel == null)
+                {
+                    actuatorsRefreshLabel = new Label
+                    {
+                        Text = "Refreshing actuators...",
+                        AutoSize = true,
+                        ForeColor = Color.Black,
+                        BackColor = Color.Transparent,
+                        Font = new Font("Segoe UI", 10, FontStyle.Italic),
+                        Margin = new Padding(8)
+                    };
+                    actuatorsRefreshHolder = new Panel
+                    {
+                        Dock = DockStyle.Top,
+                        Height = 36,
+                        BackColor = Color.Transparent
+                    };
+                    actuatorsRefreshHolder.Controls.Add(actuatorsRefreshLabel);
+                    // position label with a little padding
+                    actuatorsRefreshLabel.Location = new Point(8, 8);
+                }
+
+                if (!actuatorsPanel.Controls.Contains(actuatorsRefreshHolder))
+                    actuatorsPanel.Controls.Add(actuatorsRefreshHolder);
+            }
+            else
+            {
+                // We already have cached actuators - show them immediately.
+                PopulateActuatorsPanel();
+            }
 
             mainViewportPanel.BackColor = Color.White;
             logsTabActive = false;
@@ -1920,6 +2077,20 @@ namespace Carebed.UI
                     btn.BackColor = isOn ? Color.LightCoral : Color.LightGreen;
                     btn.ForeColor = Color.Black;
                 }
+
+                // Update the actuator icon based on the type and state
+                if (actuatorIconBoxes.TryGetValue(actuatorId, out var iconBox))
+                {
+                    if (msg.Watts.HasValue && msg.Watts.Value > 0.1)
+                    {
+                        // Example: Use a different icon or color when the actuator is active
+                        iconBox.Image = GetActuatorIcon(msg.ActuatorId, true);
+                    }
+                    else
+                    {
+                        iconBox.Image = GetActuatorIcon(msg.ActuatorId, false);
+                    }
+                }
             });
         }
 
@@ -1952,6 +2123,19 @@ namespace Carebed.UI
                     btn.Text = isOn ? "Turn Off" : "Turn On";
                     btn.BackColor = isOn ? Color.LightCoral : Color.LightGreen;
                     btn.ForeColor = Color.Black;
+                }
+
+                // Update the actuator icon based on the type and state
+                if (actuatorIconBoxes.TryGetValue(actuatorId, out var iconBox))
+                {
+                    if (msg.CurrentState == ActuatorStates.On)
+                    {
+                        iconBox.Image = GetActuatorIcon(actuatorId, true);
+                    }
+                    else
+                    {
+                        iconBox.Image = GetActuatorIcon(actuatorId, false);
+                    }
                 }
             });
         }
@@ -2000,14 +2184,69 @@ namespace Carebed.UI
         {
             if (actuatorsPanel == null) return;
 
+            // Remove any "refreshing" indicator before rebuilding the UI
+            if (actuatorsRefreshHolder != null && actuatorsPanel.Controls.Contains(actuatorsRefreshHolder))
+            {
+                try { actuatorsPanel.Controls.Remove(actuatorsRefreshHolder); } catch { }
+            }
+
             actuatorsPanel.Controls.Clear();
             actuatorStatusLabels.Clear();
             actuatorToggleButtons.Clear();
+            actuatorIconBoxes.Clear();
+            actuatorCards.Clear();
+
+            // Create a flow layout panel for the actuator cards
+            actuatorsGrid = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                Padding = new Padding(8),
+                BackColor = AppColour
+            };
+            actuatorsPanel.Controls.Add(actuatorsGrid);
+
+            // If no actuators known, show an informative label so user/developer can see nothing was discovered
+            if (_availableActuators == null || _availableActuators.Count == 0)
+            {
+                var emptyLabel = new Label
+                {
+                    Text = "No actuators discovered",
+                    AutoSize = true,
+                    ForeColor = Color.Black,
+                    BackColor = Color.Transparent,
+                    Font = new Font("Segoe UI", 10, FontStyle.Italic),
+                    Margin = new Padding(12)
+                };
+                // Place it centered within the panel
+                var holder = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = Color.Transparent };
+                holder.Controls.Add(emptyLabel);
+                emptyLabel.Location = new Point(Math.Max(8, (holder.ClientSize.Width - emptyLabel.Width) / 2), 8);
+                holder.Resize += (s, e) =>
+                {
+                    emptyLabel.Location = new Point(Math.Max(8, (holder.ClientSize.Width - emptyLabel.Width) / 2), 8);
+                };
+                actuatorsPanel.Controls.Add(holder);
+                return;
+            }
 
             foreach (var kv in _availableActuators)
             {
                 string actuatorId = kv.Key;
                 ActuatorTypes type = kv.Value;
+
+                // Add a label for actuator name/type/ID
+                var nameLabel = new Label
+                {
+                    Text = $"{type}", // Shows type
+                    Name = $"NameLabel_{actuatorId}",
+                    AutoSize = true,
+                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                    ForeColor = Color.Black,
+                    Margin = new Padding(4, 0, 4, 4)
+                };
 
                 var statusLabel = new Label
                 {
@@ -2017,7 +2256,7 @@ namespace Carebed.UI
                     Width = 120,
                     TextAlign = ContentAlignment.MiddleLeft,
                     ForeColor = Color.Black,
-                    Margin = new Padding(8, 6, 8, 6)
+                    Margin = new Padding(4)
                 };
                 actuatorStatusLabels[actuatorId] = statusLabel;
 
@@ -2028,49 +2267,151 @@ namespace Carebed.UI
                     AutoSize = true,
                     Margin = new Padding(4)
                 };
+
+                // capture variables for closure
                 toggleButton.Click += (s, e) => ToggleActuatorState(actuatorId, toggleButton);
                 actuatorToggleButtons[actuatorId] = toggleButton;
 
                 // Initialize UI from cached state if available
                 if (_actuatorStates.TryGetValue(actuatorId, out var knownState))
                 {
-                    // set status label
                     statusLabel.Text = knownState.ToString();
                     statusLabel.ForeColor = (knownState == ActuatorStates.On || knownState == ActuatorStates.Completed)
                         ? Color.LimeGreen : (knownState == ActuatorStates.Error ? Color.Red : Color.Gray);
 
-                    // set button
                     bool isOn = knownState == ActuatorStates.On;
                     toggleButton.Text = isOn ? "Turn Off" : "Turn On";
                     toggleButton.BackColor = isOn ? Color.LightCoral : Color.LightGreen;
                     toggleButton.ForeColor = Color.Black;
                 }
 
-                var actuatorPanelRow = new FlowLayoutPanel
+                // Create an icon box for the actuator
+                var iconBox = new PictureBox
                 {
-                    Dock = DockStyle.Top,
-                    AutoSize = true,
-                    FlowDirection = FlowDirection.LeftToRight,
-                    WrapContents = false,
-                    Margin = new Padding(0, 4, 0, 4)
+                    Name = $"IconBox_{actuatorId}",
+                    Size = new Size(64, 64),
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    Margin = new Padding(0, 0, 8, 0),
+                    Image = GetActuatorIcon(actuatorId, false) // default to inactive icon
+                };
+                actuatorIconBoxes[actuatorId] = iconBox;
+
+                // Create a card panel for the actuator
+                var cardPanel = new Panel
+                {
+                    Name = $"CardPanel_{actuatorId}",
+                    Size = new Size(220, 140),
+                    Margin = new Padding(4),
+                    Padding = new Padding(8),
+                    BackColor = Color.WhiteSmoke,
+                    BorderStyle = BorderStyle.FixedSingle
                 };
 
-                actuatorPanelRow.Controls.Add(new Label
+                // Use an inner FlowLayoutPanel to reliably arrange icon on left and details on right
+                var cardLayout = new FlowLayoutPanel
                 {
-                    Text = actuatorId,
-                    Width = 220,
-                    TextAlign = ContentAlignment.MiddleLeft,
-                    ForeColor = Color.Black,
-                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                    Margin = new Padding(0, 0, 8, 0)
-                });
-                actuatorPanelRow.Controls.Add(statusLabel);
-                actuatorPanelRow.Controls.Add(toggleButton);
+                    Dock = DockStyle.Fill,
+                    FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false,
+                    AutoSize = false,
+                    Padding = new Padding(4)
+                };
 
-                actuatorsPanel.Controls.Add(actuatorPanelRow);
+                // Right-side panel stacks status + button vertically
+                var rightPanel = new FlowLayoutPanel
+                {
+                    FlowDirection = FlowDirection.TopDown,
+                    WrapContents = false,
+                    AutoSize = true,
+                    Width = 220 - 64 - 32, // cardPanel.Width - iconBox.Width - 32
+                    Padding = new Padding(4)
+                };
+                // Ensure status is at top and button below
+                rightPanel.Controls.Add(nameLabel);    // Add name/type label at the top
+                rightPanel.Controls.Add(statusLabel);
+                rightPanel.Controls.Add(toggleButton);
+
+                cardLayout.Controls.Add(iconBox);
+                cardLayout.Controls.Add(rightPanel);
+
+                cardPanel.Controls.Add(cardLayout);
+
+                // Store reference to allow later updates
+                actuatorCards[actuatorId] = cardPanel;
+
+                // Add the card to the grid
+                actuatorsGrid.Controls.Add(cardPanel);
             }
 
+            // small spacer
             actuatorsPanel.Controls.Add(new Panel { Height = 18 });
+        }
+
+        /// <summary>
+        /// Returns a simple icon image for an actuator.
+        /// If a real icon set is available this can be replaced to load resources instead.
+        /// </summary>
+        private Image GetActuatorIcon(string actuatorId, bool active)
+        {
+            ActuatorTypes type = ActuatorTypes.Custom;
+            if (!string.IsNullOrEmpty(actuatorId) && _availableActuators.TryGetValue(actuatorId, out var t))
+                type = t;
+
+            int w = 64, h = 64;
+            var bmp = new Bitmap(w, h);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.Transparent);
+                var pen = Pens.DarkGray;
+                Brush brush = Brushes.LightGray;
+
+                switch (type)
+                {
+                    case ActuatorTypes.Lamp:
+                        pen = Pens.DarkGoldenrod;
+                        brush = active ? Brushes.Gold : Brushes.LightGray;
+                        // draw simple bulb
+                        g.FillEllipse(brush, 12, 8, 40, 40);
+                        g.DrawEllipse(pen, 12, 8, 40, 40);
+                        g.FillRectangle(Brushes.Silver, 28, 44, 8, 10);
+                        break;
+                    case ActuatorTypes.BedLift:
+                    case ActuatorTypes.HeadTilt:
+                    case ActuatorTypes.LegRaise:
+                    case ActuatorTypes.BedRoll:
+                    case ActuatorTypes.SideRail:
+                        pen = Pens.DimGray;
+                        brush = active ? Brushes.LightGreen : Brushes.LightGray;
+                        g.FillRectangle(brush, 8, 20, 48, 28);
+                        g.DrawRectangle(pen, 8, 20, 48, 28);
+                        // arrow to indicate movement
+                        var points = new Point[] { new Point(w/2, 6), new Point(w/2 - 6, 18), new Point(w/2 + 6, 18) };
+                        g.FillPolygon(active ? Brushes.Green : Brushes.Gray, points);
+                        break;
+                    default:
+                        pen = Pens.Gray;
+                        brush = active ? Brushes.LightSkyBlue : Brushes.LightGray;
+                        g.FillRectangle(brush, 8, 8, 48, 48);
+                        g.DrawRectangle(pen, 8, 8, 48, 48);
+                        break;
+                }
+            }
+            return bmp;
+        }
+
+        /// <summary>
+        /// Map actuator type + desired toggle to a concrete ActuatorCommands value.
+        /// </summary>
+        private ActuatorCommands GetToggleCommand(ActuatorTypes type, bool currentlyOn)
+        {
+            // currentlyOn == true means we want to turn it off (deactivate)
+            return type switch
+            {
+                ActuatorTypes.Lamp => currentlyOn ? ActuatorCommands.DeactivateLamp : ActuatorCommands.ActivateLamp,
+                ActuatorTypes.BedLift or ActuatorTypes.HeadTilt or ActuatorTypes.LegRaise or ActuatorTypes.BedRoll or ActuatorTypes.SideRail
+                    => currentlyOn ? ActuatorCommands.Lower : ActuatorCommands.Raise,
+                _ => currentlyOn ? ActuatorCommands.Stop : ActuatorCommands.Reset,
+            };
         }
 
         /// <summary>
@@ -2084,7 +2425,12 @@ namespace Carebed.UI
 
             // Determine desired action from button text
             bool currentlyOn = button.Text == "Turn Off";
-            ActuatorCommands cmd = currentlyOn ? ActuatorCommands.DeactivateLamp : ActuatorCommands.ActivateLamp;
+
+            // Determine actuator type (fallback to Custom)
+            ActuatorTypes type = _availableActuators.ContainsKey(actuatorId) ? _availableActuators[actuatorId] : ActuatorTypes.Custom;
+
+            // Map to a command depending on type
+            ActuatorCommands cmd = GetToggleCommand(type, currentlyOn);
 
             // Update UI immediately for responsiveness
             button.Text = currentlyOn ? "Turn On" : "Turn Off";
@@ -2093,37 +2439,20 @@ namespace Carebed.UI
             // Update cached state immediately so rebuilding UI keeps the expected state
             _actuatorStates[actuatorId] = currentlyOn ? ActuatorStates.Off : ActuatorStates.On;
 
+            // Update icon immediately if present
+            if (actuatorIconBoxes.TryGetValue(actuatorId, out var iconBox))
+                iconBox.Image = GetActuatorIcon(actuatorId, !currentlyOn);
+
             // Build command message
             var command = new ActuatorCommandMessage
             {
                 ActuatorId = actuatorId,
-                TypeOfActuator = _availableActuators.ContainsKey(actuatorId) ? _availableActuators[actuatorId] : ActuatorTypes.Custom,
+                TypeOfActuator = type,
                 CommandType = cmd
             };
 
             var envelope = new MessageEnvelope<ActuatorCommandMessage>(command, MessageOrigins.DisplayManager, MessageTypes.ActuatorCommand);
             _ = _eventBus.PublishAsync(envelope);
-        }
-
-        /// <summary>
-        /// Handles the click event for the "Pause Global Messages" button.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void PauseGlobalMessagesButton_Click(object? sender, EventArgs e)
-        {
-            // toggle subscribe/unsubscribe of global messages
-            globalMessagesPaused = !globalMessagesPaused;
-
-            if (_globalLogHandler != null)
-            {
-                if (globalMessagesPaused)
-                    _eventBus.UnsubscribeFromGlobalMessages(_globalLogHandler);
-                else
-                    _eventBus.SubscribeToGlobalMessages(_globalLogHandler);
-            }
-
-            UpdateGlobalMessagesStatus();
         }
 
         /// <summary>
@@ -2381,6 +2710,24 @@ namespace Carebed.UI
         }
 
         /// <summary>
+        /// Handles click for Pause/Resume Global Messages button.
+        /// Subscribes/unsubscribes the global log handler on the event bus and updates UI.
+        /// </summary>
+        private void PauseGlobalMessagesButton_Click(object? sender, EventArgs e)
+        {
+            globalMessagesPaused = !globalMessagesPaused;
+            if (globalMessagesPaused)
+            {
+                try { if (_globalLogHandler != null) _eventBus.UnsubscribeFromGlobalMessages(_globalLogHandler); } catch { }
+            }
+            else
+            {
+                try { if (_globalLogHandler != null) _eventBus.SubscribeToGlobalMessages(_globalLogHandler); } catch { }
+            }
+            RunOnUiThread(UpdateGlobalMessagesStatus);
+        }
+
+        /// <summary>
         /// Updates the visibility of the "Scroll to Latest" button based on the current state of the logs view.
         /// </summary>
         /// <remarks>This method ensures that the "Scroll to Latest" button is only visible when the logs
@@ -2455,7 +2802,7 @@ namespace Carebed.UI
                     msg.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
                     msg.MessageOrigin.ToString(),
                     msg.MessageType.ToString(),
-                    msg.Payload?.ToString() ?? ""
+                    GetReadableEnvelopeMessage(msg)
                 );
                 if (prevSelectedId.HasValue && msg.MessageId == prevSelectedId.Value)
                     selectedRowIndex = rowIndex;
@@ -2694,10 +3041,20 @@ namespace Carebed.UI
             }
         }
 
+        private void AdjustLogMessageColumnWidth()
+        {
+            // Intentionally left empty.
+            // The DataGridView 'Message' column uses DataGridViewAutoSizeColumnMode.Fill,
+            // so the built-in layout handles sizing. Removing manual resizing prevents
+            // layout churn and avoids fighting the built-in autosize behaviour.
+            return;
+        }
+
+
         /// <summary>
         /// Helper to run an action on the UI thread.
         /// </summary>
-        /// <param name="action"></param>
+        /// <param name="action"></param>        
         private void RunOnUiThread(Action action)
         {
             if (action == null) return;

@@ -87,10 +87,28 @@ namespace Carebed.Models.Actuators
             if (_currentMotion == ActuatorCommands.Raise)
             {
                 _position = Math.Min(100.0, _position + delta);
+                if (_position >= 100.0)
+                {
+                    _currentMotion = null;
+                    _moveTimestamp = null;
+                    TryTransition(ActuatorStates.Completed);
+                }
             }
             else if (_currentMotion == ActuatorCommands.Lower)
             {
                 _position = Math.Max(0.0, _position - delta);
+                if (_position <= 0.0)
+                {
+                    _currentMotion = null;
+                    _moveTimestamp = null;
+                    TryTransition(ActuatorStates.Completed);
+                }
+            }
+            else
+            {
+                // If not moving, clear motion/timestamp
+                _currentMotion = null;
+                _moveTimestamp = null;
             }
 
             // reset timestamp so subsequent telemetry increments from now

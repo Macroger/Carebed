@@ -93,11 +93,22 @@ namespace Carebed.Managers
         {
             var commandMessage = envelope.Payload;
 
+            // First check if the command is an emit inventory command
+            if (commandMessage.CommandType == ActuatorCommands.EmitActuatorInventory)
+            {
+                EmitActuatorInventoryMessage();
+                await PublishCommandAckAsync(commandMessage, canExecute: true); // Positive ack
+                return;
+            }
+
             // Look through the list of actuators to find the desired one, and attempt to execute the command.
             if (_actuators.TryGetValue(commandMessage.ActuatorId, out var actuator))
             {
+                // Map generic commands to actuator-specific commands if necessary
+                var mappedCommand = MapCommandForActuator(actuator.Type, commandMessage.CommandType);
+
                 // Actuator found - try to execute the command
-                bool success = actuator.TryExecute(commandMessage.CommandType);
+                bool success = actuator.TryExecute(mappedCommand);
 
                 // Publish acknowledgment based on execution result
                 if (success)
@@ -115,6 +126,25 @@ namespace Carebed.Managers
                 // Actuator not found, publish negative ack
                 await PublishCommandAckAsync(commandMessage, canExecute: false); // Negative ack
             }
+        }
+
+        /// <summary>
+        /// Maps a generic ActuatorCommands (like Activate/Deactivate) to an actuator-specific
+        /// ActuatorCommands value based on the actuator type.
+        /// </summary>
+        private ActuatorCommands MapCommandForActuator(ActuatorTypes type, ActuatorCommands requested)
+        {
+            // If the command is not generic, return it unchanged.
+            if (requested != ActuatorCommands.Activate && requested != ActuatorCommands.Deactivate)
+                return requested;
+
+            // Map Activate/Deactivate to type-specific commands
+            return type switch
+            {
+                ActuatorTypes.Lamp => requested == ActuatorCommands.Activate ? ActuatorCommands.ActivateLamp : ActuatorCommands.DeactivateLamp,
+                // Future mappings for other actuator types can be added here
+                _ => requested // If no mapping exists, fall back to the requested command
+            };
         }
 
         /// <summary>
