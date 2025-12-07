@@ -30,14 +30,16 @@ namespace Carebed.Models.Actuators
         /// </summary>
         public event Action<ActuatorStates>? OnStateChanged;
 
+        public event Action<ActuatorStatusMessage>? OnStatusMessage;
+
         /// <summary>
         /// Constructor for the ActuatorBase class.
         /// </summary>
-        protected ActuatorBase(string actuatorId, ActuatorTypes type, Dictionary<ActuatorStates, ActuatorStates[]> transitionMap)
+        protected ActuatorBase(string actuatorId, ActuatorTypes type, Dictionary<ActuatorStates, ActuatorStates[]> transitionMap, ActuatorStates initialState = ActuatorStates.Idle)
         {
             ActuatorId = actuatorId;
             Type = type;
-            _stateMachine = new StateMachine<ActuatorStates>(ActuatorStates.Idle, transitionMap);
+            _stateMachine = new StateMachine<ActuatorStates>(initialState, transitionMap);
         }
 
         /// <summary>
@@ -48,6 +50,7 @@ namespace Carebed.Models.Actuators
             if (_stateMachine.TryTransition(next))
             {
                 OnStateChanged?.Invoke(_stateMachine.Current);
+                PublishStatus(); // <-- Ensures status is published after every transition
                 return true;
             }
             return false;
@@ -69,6 +72,22 @@ namespace Carebed.Models.Actuators
         /// **Must be implemented by derived classes.**
         /// </remarks>        
         public abstract ActuatorTelemetryMessage GetTelemetry();
+
+        /// <summary>
+        /// Publishes the current status of the actuator.
+        /// </summary>
+        public void PublishStatus()
+        {
+            var statusMsg = new ActuatorStatusMessage
+            {
+                ActuatorId = ActuatorId,
+                TypeOfActuator = Type,
+                CurrentState = CurrentState,
+                CreatedAt = DateTime.UtcNow
+                // Add other fields as needed
+            };
+            OnStatusMessage?.Invoke(statusMsg);
+        }
 
         /// <summary>
         /// Method to reset the actuator to a known safe state (e.g., from Error to Idle).

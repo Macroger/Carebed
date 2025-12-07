@@ -26,11 +26,18 @@ namespace Carebed.Infrastructure
 
             var actuators = new List<IActuator>
             {
-                new SimulatedBedLamp("SimulatedBedLampActuator1")
+                new SimulatedBedLamp("SimulatedBedLampActuator"),
+                new SimulatedBedPosition("SimulatedBedPositionActuator"),
+                new SimulatedHeadTilt("SimulatedHeadTiltActuator"),
+                new SimulatedLegRaise("SimulatedLegRaiseActuator")
                 // ... add more actuators as needed
             };
 
-            var sensorManager = new SensorManager(_eventBus, sensors);
+
+            // Create SensorManager
+            var sensorManager = new SensorManager(_eventBus, sensors, 1500);
+
+            // Create ActuatorManager
             var actuatorManager = new ActuatorManager(_eventBus, actuators);
 
             // Create AlertManager
@@ -53,6 +60,9 @@ namespace Carebed.Infrastructure
 
             // Instantiate the MainDashboard, pass sensorManager and alertManager so UI controls their lifecycles
             var dashboard = new MainDashboard(_eventBus);
+
+            // Re-emit actuator inventory after dashboard has subscribed so UI receives it
+            //actuatorManager.EmitActuatorInventoryMessage();
 
             // Start managers
             foreach (var manager in managers)

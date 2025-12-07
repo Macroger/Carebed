@@ -9,6 +9,16 @@ namespace Carebed.Infrastructure.Enums
     public enum ActuatorCommands
     {
         /// <summary>
+        /// Generic activate command - map to actuator-specific start/enable command.
+        /// </summary>
+        Activate,
+
+        /// <summary>
+        /// Generic deactivate command - map to actuator-specific stop/disable command.
+        /// </summary>
+        Deactivate,
+
+        /// <summary>
         /// Instructs the actuator to begin upward or forward motion.
         /// </summary>
         Raise,
@@ -46,6 +56,11 @@ namespace Carebed.Infrastructure.Enums
         /// <summary>
         /// Resets the actuator to its default or idle state.
         /// </summary>
-        Reset
+        Reset,
+
+        /// <summary>
+        /// Emits a message regarding the actuator inventory.
+        /// </summary>
+        EmitActuatorInventory,
     }
 }
