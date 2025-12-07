@@ -52,6 +52,7 @@ namespace Carebed.Models.Actuators
 
                 case ActuatorCommands.Stop:
                     CancelMovementTimer();
+                    UpdateExtension();
                     TryTransition(ActuatorStates.Completed);
                     // Schedule transition to Idle after 500ms
                     Task.Run(async () =>

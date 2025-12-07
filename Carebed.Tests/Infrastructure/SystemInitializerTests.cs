@@ -57,7 +57,7 @@ namespace Carebed.Tests.Infrastructure
             var actuatorsField = actuatorManager.GetType().GetField("_actuators", BindingFlags.NonPublic | BindingFlags.Instance);
             var actuatorsDict = actuatorsField?.GetValue(actuatorManager) as IDictionary<string, IActuator>;
             var actuatorNames = actuatorsDict?.Values.Select(a => a.ActuatorId).ToList();
-            CollectionAssert.Contains(actuatorNames, "SimulatedBedLampActuator1");
+            CollectionAssert.Contains(actuatorNames, "SimulatedBedLampActuator");
         }
     }
 }
