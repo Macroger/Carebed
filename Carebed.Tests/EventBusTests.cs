@@ -1,6 +1,7 @@
 using Carebed.Infrastructure.EventBus;
 using Carebed.Infrastructure.MessageEnvelope;
 using Carebed.Infrastructure.Enums;
+using Carebed.Infrastructure.Message.SensorMessages;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Threading;
@@ -23,7 +24,13 @@ namespace Carebed.Tests
  bus.SubscribeToGlobalMessages(handler1);
  bus.SubscribeToGlobalMessages(handler2);
 
- var envelope = new MessageEnvelope<string>("x", MessageOrigins.EventBus, MessageTypes.System);
+ var payload = new SensorTelemetryMessage
+ {
+ SensorID = "s1",
+ TypeOfSensor = SensorTypes.Temperature,
+ Data = new SensorData { Value =1.0, Source = "s1", SensorType = SensorTypes.Temperature, IsCritical = false }
+ };
+ var envelope = new MessageEnvelope<SensorTelemetryMessage>(payload, MessageOrigins.EventBus, MessageTypes.SensorData);
  await bus.PublishAsync(envelope);
 
  await Task.Delay(100); // allow handlers to run
@@ -35,24 +42,34 @@ namespace Carebed.Tests
  }
 
  [TestMethod]
- public async Task GlobalSubscriber_Receives_OnlyMatchingPayloadTypes_WhenChecked()
+ public async Task GenericSubscribe_ReceivesOnlyMatchingMessageType()
  {
  var bus = new BasicEventBus();
- bool gotString = false;
- bool gotInt = false;
+ bool receivedTelemetry = false;
+ bool receivedStatus = false;
 
- bus.SubscribeToGlobalMessages(env =>
+ bus.Subscribe<SensorTelemetryMessage>(envelope => receivedTelemetry = true);
+ bus.Subscribe<SensorStatusMessage>(envelope => receivedStatus = true);
+
+ // Publish a status message - should only trigger status handler
+ var status = new SensorStatusMessage { SensorID = "sX", TypeOfSensor = SensorTypes.Temperature, CurrentState = SensorStates.Running };
+ var envelopeStatus = new MessageEnvelope<SensorStatusMessage>(status, MessageOrigins.EventBus, MessageTypes.SensorStatus);
+ await bus.PublishAsync(envelopeStatus);
+
+ // Publish a telemetry message - should only trigger telemetry handler
+ var telemetry = new SensorTelemetryMessage
  {
- if (env.Payload is string) gotString = true;
- if (env.Payload is int) gotInt = true;
- });
-
- await bus.PublishAsync(new MessageEnvelope<int>(123, MessageOrigins.EventBus, MessageTypes.Undefined));
- await bus.PublishAsync(new MessageEnvelope<string>("ok", MessageOrigins.EventBus, MessageTypes.Undefined));
+ SensorID = "sY",
+ TypeOfSensor = SensorTypes.Temperature,
+ Data = new SensorData { Value =2.0, Source = "sY", SensorType = SensorTypes.Temperature, IsCritical = false }
+ };
+ var envelopeTelemetry = new MessageEnvelope<SensorTelemetryMessage>(telemetry, MessageOrigins.EventBus, MessageTypes.SensorData);
+ await bus.PublishAsync(envelopeTelemetry);
 
  await Task.Delay(100);
- Assert.IsTrue(gotInt, "int payload should be received");
- Assert.IsTrue(gotString, "string payload should be received");
+
+ Assert.IsTrue(receivedStatus);
+ Assert.IsTrue(receivedTelemetry);
  }
 
  [TestMethod]
@@ -63,12 +80,12 @@ namespace Carebed.Tests
  Action<IMessageEnvelope> handler = _ => called++;
 
  bus.SubscribeToGlobalMessages(handler);
- await bus.PublishAsync(new MessageEnvelope<int>(1, MessageOrigins.EventBus, MessageTypes.Undefined));
+ await bus.PublishAsync(new MessageEnvelope<SensorTelemetryMessage>(new SensorTelemetryMessage { SensorID = "1", TypeOfSensor = SensorTypes.Temperature, Data = new SensorData { Value =1, Source = "1", SensorType = SensorTypes.Temperature, IsCritical = false } }, MessageOrigins.EventBus, MessageTypes.SensorData));
  await Task.Delay(50);
  Assert.AreEqual(1, called);
 
  bus.UnsubscribeFromGlobalMessages(handler);
- await bus.PublishAsync(new MessageEnvelope<int>(2, MessageOrigins.EventBus, MessageTypes.Undefined));
+ await bus.PublishAsync(new MessageEnvelope<SensorTelemetryMessage>(new SensorTelemetryMessage { SensorID = "2", TypeOfSensor = SensorTypes.Temperature, Data = new SensorData { Value =2, Source = "2", SensorType = SensorTypes.Temperature, IsCritical = false } }, MessageOrigins.EventBus, MessageTypes.SensorData));
  await Task.Delay(50);
  Assert.AreEqual(1, called, "Handler should not be invoked after unsubscribe");
  }
@@ -82,7 +99,7 @@ namespace Carebed.Tests
  bus.SubscribeToGlobalMessages(_ => throw new InvalidOperationException("boom"));
  bus.SubscribeToGlobalMessages(_ => goodHandlerCalled = true);
 
- await bus.PublishAsync(new MessageEnvelope<string>("x", MessageOrigins.EventBus, MessageTypes.Undefined));
+ await bus.PublishAsync(new MessageEnvelope<SensorTelemetryMessage>(new SensorTelemetryMessage { SensorID = "x", TypeOfSensor = SensorTypes.Temperature, Data = new SensorData { Value =1, Source = "x", SensorType = SensorTypes.Temperature, IsCritical = false } }, MessageOrigins.EventBus, MessageTypes.SensorData));
  await Task.Delay(100);
 
  Assert.IsTrue(goodHandlerCalled, "Other handlers should still be invoked when one throws.");
@@ -100,7 +117,8 @@ namespace Carebed.Tests
  var tasks = new Task[publishCount];
  for (int i =0; i < publishCount; i++)
  {
- tasks[i] = bus.PublishAsync(new MessageEnvelope<int>(i, MessageOrigins.EventBus, MessageTypes.Undefined));
+ var msg = new SensorTelemetryMessage { SensorID = $"s{i}", TypeOfSensor = SensorTypes.Temperature, Data = new SensorData { Value = i, Source = $"s{i}", SensorType = SensorTypes.Temperature, IsCritical = false } };
+ tasks[i] = bus.PublishAsync(new MessageEnvelope<SensorTelemetryMessage>(msg, MessageOrigins.EventBus, MessageTypes.SensorData));
  }
 
  await Task.WhenAll(tasks);
