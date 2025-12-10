@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Reflection;
 using Carebed.Infrastructure.Enums;
 using Carebed.Infrastructure.EventBus;
 using Carebed.Infrastructure.Message;
@@ -79,7 +80,7 @@ namespace Carebed.Tests.Managers
             };
             var sensorEnv = new MessageEnvelope<SensorErrorMessage>(sensorMsg, MessageOrigins.SensorManager, MessageTypes.SensorError);
 
-            var methodSensor = typeof(AlertManager).GetMethod("HandleSensorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var methodSensor = typeof(AlertManager).GetMethod("HandleSensorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             methodSensor.MakeGenericMethod(typeof(SensorErrorMessage)).Invoke(_alertManager, new object[] { sensorEnv });
 
             var actuatorMsg = new ActuatorErrorMessage
@@ -93,11 +94,11 @@ namespace Carebed.Tests.Managers
                 CreatedAt = DateTime.UtcNow
             };
             var actuatorEnv = new MessageEnvelope<ActuatorErrorMessage>(actuatorMsg, MessageOrigins.ActuatorManager, MessageTypes.ActuatorError);
-            var methodAct = typeof(AlertManager).GetMethod("HandleActuatorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var methodAct = typeof(AlertManager).GetMethod("HandleActuatorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             methodAct.MakeGenericMethod(typeof(ActuatorErrorMessage)).Invoke(_alertManager, new object[] { actuatorEnv });
 
             // Sanity: private store contains alerts
-            var activeField = typeof(AlertManager).GetField("_activeAlerts", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var activeField = typeof(AlertManager).GetField("_activeAlerts", BindingFlags.NonPublic | BindingFlags.Instance);
             var activeDict = (Dictionary<MessageOrigins, Dictionary<string, IEventMessage>>)activeField.GetValue(_alertManager);
             Assert.IsTrue(activeDict.TryGetValue(MessageOrigins.SensorManager, out var sdict) && sdict.Count > 0, "Sensor alerts should be stored.");
             Assert.IsTrue(activeDict.TryGetValue(MessageOrigins.ActuatorManager, out var adict) && adict.Count > 0, "Actuator alerts should be stored.");
@@ -113,7 +114,7 @@ namespace Carebed.Tests.Managers
                 clearAllMessages = true
             };
             var clearEnv = new MessageEnvelope<AlertClearMessage<IEventMessage>>(clearMsg, MessageOrigins.DisplayManager, MessageTypes.AlertClear);
-            var clearMethod = typeof(AlertManager).GetMethod("HandleAlertClear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var clearMethod = typeof(AlertManager).GetMethod("HandleAlertClear", BindingFlags.NonPublic | BindingFlags.Instance);
             clearMethod.Invoke(_alertManager, new object[] { clearEnv });
 
             // Assert: ack published with Source == "ALL" and alertCleared == true
@@ -177,7 +178,7 @@ namespace Carebed.Tests.Managers
             var envelope = new MessageEnvelope<SensorErrorMessage>(msg, MessageOrigins.SensorManager, MessageTypes.SensorError);
             _alertManager.Start();
             _eventBusMock.Invocations.Clear();
-            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(SensorErrorMessage)).Invoke(_alertManager, new object[] { envelope });
             Assert.IsTrue(_publishedMessages.Exists(m => m is MessageEnvelope<AlertActionMessage<SensorErrorMessage>>));
         }
@@ -196,7 +197,7 @@ namespace Carebed.Tests.Managers
             var envelope = new MessageEnvelope<SensorStatusMessage>(msg, MessageOrigins.SensorManager, MessageTypes.SensorStatus);
             _alertManager.Start();
             _eventBusMock.Invocations.Clear();
-            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(SensorStatusMessage)).Invoke(_alertManager, new object[] { envelope });
             Assert.IsTrue(_publishedMessages.Exists(m => m is MessageEnvelope<AlertActionMessage<SensorStatusMessage>>));
         }
@@ -215,7 +216,7 @@ namespace Carebed.Tests.Managers
             var envelope = new MessageEnvelope<SensorTelemetryMessage>(msg, MessageOrigins.SensorManager, MessageTypes.SensorData);
             _alertManager.Start();
             _eventBusMock.Invocations.Clear();
-            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(SensorTelemetryMessage)).Invoke(_alertManager, new object[] { envelope });
             Assert.IsTrue(_publishedMessages.Exists(m => m is MessageEnvelope<AlertActionMessage<SensorTelemetryMessage>>));
         }
@@ -236,7 +237,7 @@ namespace Carebed.Tests.Managers
             var envelope = new MessageEnvelope<ActuatorErrorMessage>(msg, MessageOrigins.ActuatorManager, MessageTypes.ActuatorError);
             _alertManager.Start();
             _eventBusMock.Invocations.Clear();
-            var method = typeof(AlertManager).GetMethod("HandleActuatorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleActuatorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(ActuatorErrorMessage)).Invoke(_alertManager, new object[] { envelope });
             Assert.IsTrue(_publishedMessages.Exists(m => m is MessageEnvelope<AlertActionMessage<ActuatorErrorMessage>>));
         }
@@ -255,7 +256,7 @@ namespace Carebed.Tests.Managers
             var envelope = new MessageEnvelope<ActuatorStatusMessage>(msg, MessageOrigins.ActuatorManager, MessageTypes.ActuatorStatus);
             _alertManager.Start();
             _eventBusMock.Invocations.Clear();
-            var method = typeof(AlertManager).GetMethod("HandleActuatorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleActuatorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(ActuatorStatusMessage)).Invoke(_alertManager, new object[] { envelope });
             Assert.IsTrue(_publishedMessages.Exists(m => m is MessageEnvelope<AlertActionMessage<ActuatorStatusMessage>>));
         }
@@ -275,7 +276,7 @@ namespace Carebed.Tests.Managers
             var envelope = new MessageEnvelope<ActuatorTelemetryMessage>(msg, MessageOrigins.ActuatorManager, MessageTypes.ActuatorTelemetry);
             _alertManager.Start();
             _eventBusMock.Invocations.Clear();
-            var method = typeof(AlertManager).GetMethod("HandleActuatorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleActuatorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(ActuatorTelemetryMessage)).Invoke(_alertManager, new object[] { envelope });
             Assert.IsTrue(_publishedMessages.Exists(m => m is MessageEnvelope<AlertActionMessage<ActuatorTelemetryMessage>>));
         }
@@ -296,7 +297,7 @@ namespace Carebed.Tests.Managers
             };
             var envelope = new MessageEnvelope<SensorErrorMessage>(msg, MessageOrigins.SensorManager, MessageTypes.SensorError);
             _alertManager.Start();
-            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(SensorErrorMessage)).Invoke(_alertManager, new object[] { envelope });
             // Now clear the alert
             var clearMsg = new AlertClearMessage<IEventMessage>
@@ -307,7 +308,7 @@ namespace Carebed.Tests.Managers
             };
             var clearEnvelope = new MessageEnvelope<AlertClearMessage<IEventMessage>>(clearMsg, MessageOrigins.AlertManager, MessageTypes.AlertClear);
             _eventBusMock.Invocations.Clear();
-            var clearMethod = typeof(AlertManager).GetMethod("HandleAlertClear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var clearMethod = typeof(AlertManager).GetMethod("HandleAlertClear", BindingFlags.NonPublic | BindingFlags.Instance);
             clearMethod.Invoke(_alertManager, new object[] { clearEnvelope });
             Assert.IsTrue(_publishedMessages.Exists(m => m is MessageEnvelope<AlertClearAckMessage>));
         }
@@ -328,7 +329,7 @@ namespace Carebed.Tests.Managers
             };
             var envelope = new MessageEnvelope<ActuatorErrorMessage>(msg, MessageOrigins.ActuatorManager, MessageTypes.ActuatorError);
             _alertManager.Start();
-            var method = typeof(AlertManager).GetMethod("HandleActuatorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleActuatorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(ActuatorErrorMessage)).Invoke(_alertManager, new object[] { envelope });
             // Now clear the alert
             var clearMsg = new AlertClearMessage<IEventMessage>
@@ -339,7 +340,7 @@ namespace Carebed.Tests.Managers
             };
             var clearEnvelope = new MessageEnvelope<AlertClearMessage<IEventMessage>>(clearMsg, MessageOrigins.AlertManager, MessageTypes.AlertClear);
             _eventBusMock.Invocations.Clear();
-            var clearMethod = typeof(AlertManager).GetMethod("HandleAlertClear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var clearMethod = typeof(AlertManager).GetMethod("HandleAlertClear", BindingFlags.NonPublic | BindingFlags.Instance);
             clearMethod.Invoke(_alertManager, new object[] { clearEnvelope });
             Assert.IsTrue(_publishedMessages.Exists(m => m is MessageEnvelope<AlertClearAckMessage>));
         }
@@ -366,7 +367,7 @@ namespace Carebed.Tests.Managers
             var clearEnvelope = new MessageEnvelope<AlertClearMessage<IEventMessage>>(clearMsg, MessageOrigins.AlertManager, MessageTypes.AlertClear);
             _alertManager.Start();
             _eventBusMock.Invocations.Clear();
-            var clearMethod = typeof(AlertManager).GetMethod("HandleAlertClear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var clearMethod = typeof(AlertManager).GetMethod("HandleAlertClear", BindingFlags.NonPublic | BindingFlags.Instance);
             clearMethod.Invoke(_alertManager, new object[] { clearEnvelope });
             Assert.IsTrue(_publishedMessages.Exists(m =>
                 m is MessageEnvelope<AlertClearAckMessage> ackEnv &&
@@ -390,7 +391,7 @@ namespace Carebed.Tests.Managers
             var envelope = new MessageEnvelope<SensorErrorMessage>(msg, MessageOrigins.SensorManager, MessageTypes.SensorError);
             _alertManager.Start();
             _eventBusMock.Invocations.Clear();
-            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(AlertManager).GetMethod("HandleSensorMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             method.MakeGenericMethod(typeof(SensorErrorMessage)).Invoke(_alertManager, new object[] { envelope });
             int countAfterFirst = _publishedMessages.Count;
             // Try to publish the same alert again

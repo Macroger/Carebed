@@ -7,7 +7,7 @@ namespace Carebed.Models.Sensors
     /// <summary>
     /// Simulated heart rate sensor (beats per minute).
     /// </summary>
-    internal sealed class HeartRateSensor : AbstractSensor
+    public class HeartRateSensor : AbstractSensor
     {
         private readonly int _lowCritical;
 

@@ -33,7 +33,6 @@ namespace Carebed.Infrastructure
                 // ... add more actuators as needed
             };
 
-
             // Create SensorManager
             var sensorManager = new SensorManager(_eventBus, sensors, 1500);
 
@@ -60,9 +59,6 @@ namespace Carebed.Infrastructure
 
             // Instantiate the MainDashboard, pass sensorManager and alertManager so UI controls their lifecycles
             var dashboard = new MainDashboard(_eventBus);
-
-            // Re-emit actuator inventory after dashboard has subscribed so UI receives it
-            //actuatorManager.EmitActuatorInventoryMessage();
 
             // Start managers
             foreach (var manager in managers)

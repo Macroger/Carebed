@@ -1,6 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Collections.Generic;
+using System.Reflection;    
 using System.Threading.Tasks;
 using Carebed.Infrastructure.Enums;
 using Carebed.Infrastructure.EventBus;
@@ -60,7 +61,7 @@ namespace Carebed.Tests.Managers
             var result = _manager.UpdateLogLocation(dir, file);
 
             Assert.IsTrue(result);
-            _mockLoggingService.Verify(s => s.ChangeFilePath(System.IO.Path.Combine(dir, file)), Times.Once);
+            _mockLoggingService.Verify(s => s.ChangeFilePath(Path.Combine(dir, file)), Times.Once);
         }
 
         [TestMethod]
@@ -126,7 +127,7 @@ namespace Carebed.Tests.Managers
                 .Returns(Task.CompletedTask);
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             var task = (Task)handleLogCommand.Invoke(_manager, new object[] { envelope });
             await task;
@@ -152,7 +153,7 @@ namespace Carebed.Tests.Managers
                 .Returns(Task.CompletedTask);
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             var task = (Task)handleLogCommand.Invoke(_manager, new object[] { envelope });
             await task;
@@ -179,12 +180,12 @@ namespace Carebed.Tests.Managers
                 .Returns(Task.CompletedTask);
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             var task = (Task)handleLogCommand.Invoke(_manager, new object[] { envelope });
             await task;
 
-            _mockLoggingService.Verify(s => s.ChangeFilePath(System.IO.Path.Combine("newdir", "newfile.txt")), Times.Once);
+            _mockLoggingService.Verify(s => s.ChangeFilePath(Path.Combine("newdir", "newfile.txt")), Times.Once);
             _mockEventBus.Verify(b => b.PublishAsync(It.IsAny<MessageEnvelope<LoggerCommandAckMessage>>()), Times.Once);
         }
 
@@ -202,7 +203,7 @@ namespace Carebed.Tests.Managers
                 .Verifiable();
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             var task = (Task)handleLogCommand.Invoke(_manager, new object[] { envelope });
             await task;
@@ -228,7 +229,7 @@ namespace Carebed.Tests.Managers
                 .Verifiable();
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             var task = (Task)handleLogCommand.Invoke(_manager, new object[] { envelope });
             await task;
@@ -298,7 +299,7 @@ namespace Carebed.Tests.Managers
             // Arrange
             var logDir = "logs";
             var logFile = "log.txt";
-            var expectedPath = System.IO.Path.Combine(logDir, logFile);
+            var expectedPath = Path.Combine(logDir, logFile);
 
             // Setup the LoggingManager with known logDir and logFile
             var manager = new LoggingManager(logDir, logFile, _mockLoggingService.Object, _mockEventBus.Object);
@@ -320,7 +321,7 @@ namespace Carebed.Tests.Managers
                 MessageTypes.LoggerCommandResponse);
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act
             var task = (Task)handleLogCommand.Invoke(manager, new object[] { envelope });
@@ -352,7 +353,7 @@ namespace Carebed.Tests.Managers
                 .Returns(Task.CompletedTask);
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act
             var task = (Task)handleLogCommand.Invoke(_manager, new object[] { envelope });
@@ -379,7 +380,7 @@ namespace Carebed.Tests.Managers
                 .Returns(Task.CompletedTask);
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act
             var task = (Task)handleLogCommand.Invoke(_manager, new object[] { envelope });
@@ -411,7 +412,7 @@ namespace Carebed.Tests.Managers
                 .Returns(Task.CompletedTask);
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act & Assert
             await Assert.ThrowsExceptionAsync<ArgumentException>(async () =>
@@ -432,7 +433,7 @@ namespace Carebed.Tests.Managers
                 MessageTypes.LoggerCommandResponse);
 
             var handleLogCommand = typeof(LoggingManager)
-                .GetMethod("HandleLogCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("HandleLogCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act & Assert: Should not throw
             var task = (Task)handleLogCommand.Invoke(_manager, new object[] { envelope });
