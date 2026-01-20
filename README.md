@@ -6,7 +6,7 @@ Carebed is a modular, event-driven system designed for monitoring and managing s
 
 ## Features
 - **Sensor Management:** Polls and aggregates data from multiple sensors.
-- **Actuator Management:** (Planned) Controls actuators such as motors or alarms.
+- **Actuator Management:** Controls actuators such as motors or alarms.
 - **Event Bus:** Decoupled event-driven communication between modules.
 - **Message Envelopes:** Standardized message wrapping with metadata for routing and logging.
 - **Extensible Architecture:** Easily add new sensors, actuators, or managers.
