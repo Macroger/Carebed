@@ -1,6 +1,6 @@
 # Carebed System
 
-![CareBed UI Screenshot]("./Carebed Main UI.bmp")
+![CareBed UI Screenshot](./Carebed-main-UI.png)
 
 Carebed is a modular, event-driven system designed for monitoring and managing sensors and actuators in a care environment. The system is built using .NET 8 and Windows Forms, with a focus on extensibility, testability, and clear separation of concerns.
 
