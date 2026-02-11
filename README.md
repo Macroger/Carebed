@@ -84,4 +84,4 @@ This project is licensed under the GNU General Public License v3.0. See the `LIC
 ---
 
 **Copilot AI Acknowledgement:**
-Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.
+Some or all of this documentation was generated or assisted by GitHub Copilot AI.
