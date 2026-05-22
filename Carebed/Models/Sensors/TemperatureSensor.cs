@@ -5,7 +5,7 @@ namespace Carebed.Models.Sensors
     /// <summary>
     /// Simulated temperature sensor.
     /// </summary>
-    internal sealed class TemperatureSensor : AbstractSensor
+    public class TemperatureSensor : AbstractSensor
     {
         public TemperatureSensor(string sensorID, SensorTypes sensorType = SensorTypes.Temperature, double min = 35.0, double max = 40.0, double criticalThreshold = 45.0)
             : base(sensorID, sensorType, min, max, criticalThreshold)

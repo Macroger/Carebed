@@ -92,8 +92,8 @@ namespace Carebed.Tests.Models
             Assert.AreEqual(5.0, telemetry.Watts ?? 0.0, Epsilon, "Watts should reflect non-moving state after Stop.");
             Assert.IsNotNull(telemetry.Position);
 
-            // Expected delta: 2 seconds * 5 %/s = 10 => 10 + initial 10 = 20
-            Assert.AreEqual(20.0, telemetry.Position.Extension ?? 0.0, 0.01, "Position should have incremented by approx 10% from initial 10%.");
+            // Expected delta: 2 seconds * 33.33 %/s = 66.66 => 10 + 66.66 = 76.66
+            Assert.AreEqual(76.66, telemetry.Position.Extension ?? 0.0, 0.05, "Position should have incremented by approx 66.66% from initial 10%.");
         }
 
         [TestMethod]

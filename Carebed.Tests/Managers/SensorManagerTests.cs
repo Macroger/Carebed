@@ -10,6 +10,7 @@ using Moq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Carebed.Tests.Managers
@@ -148,7 +149,7 @@ namespace Carebed.Tests.Managers
             _sensorManager.Start(); // Ensure sensors are running
 
             var pollOnceAsyncMethod = typeof(SensorManager)
-                .GetMethod("PollOnceAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                .GetMethod("PollOnceAsync", BindingFlags.NonPublic | BindingFlags.Instance);
 
             var task = pollOnceAsyncMethod?.Invoke(_sensorManager, null) as Task;
             Assert.IsNotNull(task, "PollOnceAsync method invocation returned null.");
@@ -182,7 +183,7 @@ namespace Carebed.Tests.Managers
                 Parameters = new Dictionary<string, object> { { "IntervalSeconds", 2.0 } }
             };
 
-            var method = typeof(SensorManager).GetMethod("HandleSensorCommand", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(SensorManager).GetMethod("HandleSensorCommand", BindingFlags.NonPublic | BindingFlags.Instance);
 
             method.Invoke(_sensorManager, new object[] { new MessageEnvelope<SensorCommandMessage>(startMsg, MessageOrigins.SensorManager) });
             Assert.IsTrue(((TestSensor)_sensors[0]).Started);
@@ -197,7 +198,7 @@ namespace Carebed.Tests.Managers
         [TestMethod]
         public void HandleStateChanged_ShouldPublishErrorOrStatus()
         {
-            var method = typeof(SensorManager).GetMethod("HandleStateChanged", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var method = typeof(SensorManager).GetMethod("HandleStateChanged", BindingFlags.NonPublic | BindingFlags.Instance);
             var testSensor = (TestSensor)_sensors[0];
 
             method.Invoke(_sensorManager, new object[] { testSensor, SensorStates.Error });

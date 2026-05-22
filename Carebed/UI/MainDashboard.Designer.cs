@@ -914,77 +914,7 @@ namespace Carebed.UI
 
             // store reference only — placement happens in LogsTabButton_Click
             this.logButtonPanel = logButtonPanel;
-        }
-
-        /// <summary>
-        /// Initialize the sensor grid in the main viewport panel.
-        /// Also prepares a chart control for plotting sensor values over time.
-        /// </summary>
-        //private void InitializeSensorGrid()
-        //{
-        //    sensorGridView = new DataGridView
-        //    {
-        //        Dock = DockStyle.Fill,
-        //        ReadOnly = true,
-        //        AllowUserToAddRows = false,
-        //        AllowUserToDeleteRows = false,
-        //        AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-        //        ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize,
-        //        BackgroundColor = Color.White
-        //    };
-        //    sensorGridView.Columns.Add("SensorID", "Sensor ID");
-        //    sensorGridView.Columns.Add("Type", "Type");
-        //    sensorGridView.Columns.Add("Value", "Value");
-        //    sensorGridView.Columns.Add("IsCritical", "Critical");
-        //    sensorGridView.Columns.Add("Timestamp", "Timestamp");
-
-        //    // Create split container: left = grid, right = chart
-        //    splitContainerSensors = new SplitContainer
-        //    {
-        //        Dock = DockStyle.Fill,
-        //        Orientation = Orientation.Vertical
-        //    };
-
-        //    // Add the grid to left panel
-        //    splitContainerSensors.Panel1.Controls.Add(sensorGridView);
-
-        //    // Create and configure the chart for the right panel
-        //    sensorChart = new Chart
-        //    {
-        //        Dock = DockStyle.Fill,
-        //        BackColor = Color.White
-        //    };
-
-        //    var chartArea = new ChartArea("SensorArea")
-        //    {
-        //        BackColor = Color.White,
-        //        AxisX = {
-        //            Title = "Time",
-        //            LabelStyle = { Format = "HH:mm:ss" },
-        //            IntervalAutoMode = IntervalAutoMode.VariableCount,
-        //            MajorGrid = { Enabled = false }
-        //        },
-        //        AxisY = {
-        //            Title = "Value",
-        //            MajorGrid = { Enabled = true }
-        //        }
-        //    };
-
-        //    sensorChart.ChartAreas.Add(chartArea);
-
-        //    // Legend
-        //    var legend = new Legend("SensorsLegend")
-        //    {
-        //        Docking = Docking.Top,
-        //        LegendStyle = LegendStyle.Row
-        //    };
-        //    sensorChart.Legends.Add(legend);
-
-        //    // Add chart to right panel
-        //    splitContainerSensors.Panel2.Controls.Add(sensorChart);
-
-        //    // Note: we do NOT add splitContainerSensors to the viewport here; ShowSensorGrid will add it
-        //}
+        }       
 
         private void InitializeSensorGrid()
         {
@@ -2007,6 +1937,7 @@ namespace Carebed.UI
             var msg = envelope.Payload;
             if (msg?.Data == null) return;
 
+            // Update sensor grid values
             RunOnUiThread(() =>
             {
                 try

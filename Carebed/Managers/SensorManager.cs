@@ -244,7 +244,7 @@ namespace Carebed.Managers
         /// sensors. If any publishing task fails, the exception is logged, but the method completes
         /// execution.</remarks>
         /// <returns></returns>
-        private async Task PollOnceAsync()
+        public async Task PollOnceAsync()
         {
             // prevent overlapping polls
             if (Interlocked.Exchange(ref _isPolling, 1) == 1) return;
