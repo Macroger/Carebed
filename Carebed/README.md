@@ -2,6 +2,12 @@
 
 Carebed is a modular, event-driven .NET 8 application for monitoring and managing sensors and actuators in a care environment. It is designed for extensibility, testability, and clear separation of concerns, with a Windows Forms UI and robust infrastructure.
 
+## What is Carebed?
+
+Carebed provides **real-time health monitoring and automated bed control** for medical care environments. The system continuously collects vital signs and environmental data from distributed sensors, detects abnormal conditions, and alerts caregivers. Simultaneously, it manages motorized bed components (position, lighting, support) through a state-machine-validated command system. All components communicate via a publish-subscribe event bus, ensuring loose coupling and easy extensibility.
+
+**For a detailed mid-level overview of how all components work together, see [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md).**
+
 ## Features
 
 - **Sensor Management:** Polls and aggregates data from multiple sensors.
