@@ -29,8 +29,8 @@ Carebed employs an **event-driven, publish-subscribe architecture** with the fol
          ┌───────────────────┼───────────────────┐
          │                   │                   │
     ┌────▼────┐         ┌────▼────┐         ┌────▼────┐
-    │ Sensor  │         │Actuator │         │ Alert   │
-    │Manager  │         │Manager  │         │Manager  │
+    │ Sensor  │         │ Actuator│         │  Alert  │
+    │ Manager │         │ Manager │         │ Manager │
     └────┬────┘         └────┬────┘         └────┬────┘
          │                   │                   │
          └───────────────────┼───────────────────┘
@@ -43,8 +43,8 @@ Carebed employs an **event-driven, publish-subscribe architecture** with the fol
          ┌───────────────────┼────────────────────┐
          │                   │                    │
     ┌────▼──────┐       ┌────▼─────┐         ┌────▼────┐
-    │ Sensors   │       │Actuators │         │Logging  │
-    │ (Physical)|       │(Physical)|         │Manager  │
+    │ Sensors   │       │Actuators │         │ Logging │
+    │ (Physical)|       │(Physical)|         │ Manager │
     └───────────┘       └──────────┘         └─────────┘
 ```
 
