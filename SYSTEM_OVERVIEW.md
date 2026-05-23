@@ -40,12 +40,12 @@ Carebed employs an **event-driven, publish-subscribe architecture** with the fol
                     │(Publish-Subscribe)|
                     └────────┬──────────┘
                              │
-         ┌───────────────────┼────────────────────┐
-         │                   │                    │
-    ┌────▼──────┐       ┌────▼─────┐         ┌────▼────┐
-    │ Sensors   │       │Actuators │         │ Logging │
-    │ (Physical)|       │(Physical)|         │ Manager │
-    └───────────┘       └──────────┘         └─────────┘
+         ┌───────────────────┼─────────────────────┐
+         │                   │                     │
+    ┌────▼──────┐       ┌────▼──────┐         ┌────▼────┐
+    │ Sensors   │       │ Actuators │         │ Logging │
+    │ (Physical)|       │ (Physical)|         │ Manager │
+    └───────────┘       └───────────┘         └─────────┘
 ```
 
 ---
@@ -93,7 +93,7 @@ The sensor subsystem continuously collects health and environmental data from mu
 3. If a sensor transitions states, a status message is published
 4. Remote commands (e.g., "recalibrate sensor") are received as `SensorCommandMessage` events
 
-**Supported Sensors:**
+**Currently Implemented Simulated Sensors:**
 - Temperature Sensor (core vitals)
 - Heart Rate Sensor (cardiac monitoring)
 - Blood Oxygen Sensor (oxygenation status)
@@ -127,7 +127,7 @@ The actuator subsystem handles all motorized and electronic bed control componen
 3. Actuator state changes trigger `ActuatorStatusMessage` or `ActuatorErrorMessage` events
 4. UI and AlertManager listen to these messages to update displays or trigger alerts
 
-**Supported Actuators:**
+**Currently Implemented Simulated Actuators:**
 - Bed Position Motor (bed height adjustment)
 - Head Tilt Motor (upper body positioning)
 - Leg Raise Motor (leg support positioning)
@@ -143,36 +143,38 @@ The actuator subsystem handles all motorized and electronic bed control componen
 
 ### 4. **Alert Management** (`Managers/AlertManager.cs`)
 
-The alert subsystem monitors sensor and actuator streams to detect critical conditions and generate user-facing alerts.
+The alert subsystem consolidates and displays critical conditions from sensors and actuators as user-facing alerts.
 
 **Architecture:**
-- AlertManager subscribes to all sensor telemetry, sensor status, actuator status, and error messages
-- When abnormal conditions are detected, an `AlertMessage` is published and a popup is displayed
-- Alerts persist in an active alert cache and can be dismissed by the user
+- **SensorManager and ActuatorManager** generate `SensorStatusMessage`, `SensorErrorMessage`, `ActuatorStatusMessage`, and `ActuatorErrorMessage` when their respective devices change state or encounter errors
+- **AlertManager** subscribes to these status/error/telemetry messages and evaluates whether they warrant alerts
+- When alert conditions are detected, AlertManager publishes `AlertActionMessage<T>` events
+- Alerts persist in an active alert cache (preventing duplicates) and can be dismissed by the user
 - User dismissals generate `AlertClearMessage` events that propagate back to the system
 
 **How It Works:**
-1. AlertManager receives telemetry and status messages from the event bus
-2. For each message, it evaluates alert rules:
-   - **Sensor alerts:** Triggered by out-of-range values, error conditions, or state transitions
-   - **Actuator alerts:** Triggered by error states or unexpected state transitions
-3. If an alert condition is met:
-   - Alert is added to the active alert cache (prevents duplicates)
-   - `AlertMessage` is published with severity, timestamp, and description
+1. SensorManager or ActuatorManager detects a state change or error and publishes a status or error message
+2. AlertManager receives these messages from the event bus
+3. For each message, it evaluates alert conditions:
+   - **Sensor alerts:** Triggered by `SensorErrorMessage`, error states, or critical telemetry values
+   - **Actuator alerts:** Triggered by `ActuatorErrorMessage` or error states
+4. If an alert condition is met:
+   - Alert payload is added to the active alert cache (prevents duplicate alerts from the same source)
+   - `AlertActionMessage<T>` is published containing the alert details
    - Alert popup is displayed on the MainDashboard UI
-4. User dismissal:
+5. User dismissal:
    - UI sends `AlertClearMessage` with the alert ID
    - AlertManager removes from cache
    - `AlertClearAckMessage` confirms dismissal to the UI
 
 **Alert Categories:**
-- **Critical:** Sensor/actuator errors, out-of-range vitals
-- **Warning:** State anomalies, command failures
+- **Critical:** Sensor/actuator errors, error states
+- **Warning:** State anomalies (detected via message evaluation)
 - **Info:** Informational state changes or thresholds
 
 **Impact:**
-- Centralizes alarm logic: new alert rules can be added without modifying sensors or actuators
-- Prevents alert storms through deduplication
+- Provides centralized alert consolidation: managers generate alerts, AlertManager aggregates and deduplicates them
+- Prevents alert storms through deduplication and correlation
 - Maintains clear audit trail: all alerts are logged and timestamped
 
 ---
@@ -313,20 +315,20 @@ The user interface provides real-time monitoring and control capabilities.
    ↓
 3. AlertManager receives message
    ↓
-4. AlertManager checks thresholds: 85% < 90% minimum → ALERT
+4. AlertManager checks conditions: Telemetry IsCritical flag is true → ALERT
    ↓
-5. AlertManager publishes AlertMessage (Critical: Low Blood Oxygen)
+5. AlertManager publishes AlertActionMessage<SensorTelemetryMessage>
    ↓
-6. AlertManager creates AlertPopup on MainDashboard
+6. UI receives alert and creates AlertPopup on MainDashboard
    ↓
-7. LoggingManager logs the alert
+7. LoggingManager logs the alert message
    ↓
 8. User reads "Low Blood Oxygen (85%)" and clicks Dismiss
    ↓
 9. MainDashboard publishes AlertClearMessage
    ↓
 10. AlertManager receives → removes from active alerts cache
-11. LoggingManager receives → logs dismissal with user ID
+11. LoggingManager receives → logs dismissal
 12. AlertPopup is removed from screen
 ```
 

@@ -4,11 +4,11 @@
 
 Carebed is a modular, event-driven system designed for monitoring and managing sensors and actuators in a care environment. The system is built using .NET 8 and Windows Forms, with a focus on extensibility, testability, and clear separation of concerns. 
 
-The main design goal with this system was to utilize an eventBus and very little coupling across modules. Each domain has a manager and that manager listens for messages on the eventBus and delegates orders to the various workers it oversees.
+The main design goal with this system was to utilize an eventBus and very little coupling across modules. Each domain has a manager which listens for messages on the eventBus and delegates orders to the various workers it oversees.
 
 In this way all domains are isolated from each other, except for the messages they receive across the eventBus.
 
-**For a detailed mid-level overview of how all components work together, see [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md).**
+**For a detailed  overview of how all components work together, see [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md).**
 
 ---
 
