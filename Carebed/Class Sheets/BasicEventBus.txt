@@ -1,0 +1,135 @@
+# Class Sheet: BasicEventBus
+
+**Namespace:** Carebed.Infrastructure.EventBus
+
+---
+
+## Purpose
+A bare-bones in-memory implementation of `AbstractEventBus` that provides synchronous, inline dispatch of event messages. Designed for quick testing, regression testing, and scenarios where immediate message delivery is desired. Suitable for development and testing but may not be ideal for high-concurrency production scenarios.
+
+---
+
+## Class Definition
+```
+public class BasicEventBus : AbstractEventBus
+```
+
+---
+
+## Inheritance
+- Inherits from `AbstractEventBus`
+- Implements `IEventBus` (through AbstractEventBus)
+
+---
+
+## Constructors
+- `BasicEventBus()`
+  - Initializes a new instance of the BasicEventBus class.
+  - Uses default subscriber registry and synchronization from `AbstractEventBus`.
+
+---
+
+## Public Methods
+
+### Subscription Management (Override)
+- `override void Subscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage`
+  - Subscribes a handler to a specific event type.
+  - Calls the base implementation to register the handler in the thread-safe subscriber registry.
+
+- `override void Unsubscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage`
+  - Unsubscribes a handler from a specific event type.
+  - Calls the base implementation to remove the handler from the subscriber registry.
+
+### Publishing (Override)
+- `override async Task PublishAsync<TPayload>(MessageEnvelope<TPayload> message) where TPayload : IEventMessage`
+  - Publishes an event message asynchronously to all subscribed handlers.
+  - Execution Strategy:
+	1. Notifies all global handlers (registered via `SubscribeToGlobalMessages`).
+	2. Retrieves all type-specific handlers for the message type using `GetHandlersFor<TPayload>()`.
+	3. Runs each handler on the thread-pool (via `Task.Run`) to isolate exceptions.
+	4. Waits for all tasks to complete using `Task.WhenAll().ConfigureAwait(false)`.
+  - Exception Handling: If a handler throws an exception, it is caught, logged to debug output, and does not affect other handlers.
+  - Returns: A completed `Task` when all handlers have been notified.
+
+### Lifecycle Management (Override)
+- `override void Initialize()`
+  - Initializes the event bus (no-op for BasicEventBus).
+  - Calls the base implementation.
+
+- `override void Shutdown()`
+  - Shuts down the event bus and clears all subscriptions.
+  - Calls the base implementation which clears the subscriber registry with thread-safe locking.
+
+---
+
+## Inherited Methods (from AbstractEventBus)
+- `void SubscribeToGlobalMessages(Action<IMessageEnvelope> handler)`
+  - Subscribes a handler to receive all published messages.
+
+- `void UnsubscribeFromGlobalMessages(Action<IMessageEnvelope> handler)`
+  - Unsubscribes a handler from global message notifications.
+
+---
+
+## Concurrency Model
+- **Thread-Safe Subscriptions**: Subscription/unsubscription are protected by locks (from `AbstractEventBus._lock`).
+- **Thread-Pool Execution**: Each handler executes on a thread-pool thread (via `Task.Run`), providing isolation and preventing one slow handler from blocking others.
+- **Awaitable Publishing**: The `PublishAsync` method awaits all handler tasks before returning, ensuring all handlers have been notified.
+
+---
+
+## Usage Example
+```csharp
+// Create and initialize the event bus
+IEventBus eventBus = new BasicEventBus();
+eventBus.Initialize();
+
+// Subscribe to sensor data messages
+eventBus.Subscribe<SensorData>((envelope) =>
+{
+	Console.WriteLine($"Sensor: {envelope.Payload.Source} = {envelope.Payload.Value}");
+});
+
+// Subscribe to all messages globally
+eventBus.SubscribeToGlobalMessages((envelope) =>
+{
+	Console.WriteLine($"[{envelope.Timestamp:O}] {envelope.MessageOrigin}::{envelope.MessageType}");
+});
+
+// Publish a sensor data message
+var sensorData = new SensorData 
+{ 
+	Value = 98.6, 
+	Source = "TempSensor1", 
+	SensorType = SensorTypes.Temperature, 
+	IsCritical = false 
+};
+var envelope = new MessageEnvelope<SensorData>(
+	sensorData, 
+	MessageOrigins.SensorManager, 
+	MessageTypes.SensorData
+);
+
+// Publish asynchronously (blocks until handlers complete)
+await eventBus.PublishAsync(envelope);
+
+// Shutdown when done
+eventBus.Shutdown();
+```
+
+---
+
+## Notes
+- **Simple and Lightweight**: BasicEventBus is designed to be straightforward and minimal, with no external dependencies or advanced features.
+- **In-Memory Only**: Messages are not persisted; they exist only during the publish operation.
+- **Synchronous Dispatch Model**: Despite using `async/await`, handlers are executed synchronously on the thread-pool and completed before `PublishAsync` returns.
+- **Exception Isolation**: If a handler throws, the exception is caught and logged to debug output without affecting other handlers.
+- **Suitable for Testing**: The simple behavior makes it ideal for unit tests and integration tests.
+- **Not Suitable for High-Throughput**: For systems requiring persistent queuing, message deduplication, or distributed messaging, consider alternative implementations.
+- **Default Implementation**: BasicEventBus is used as the default event bus in `SystemInitializer` for the Carebed system.
+- **Debug Output**: Exceptions from handlers are logged via `System.Diagnostics.Debug.WriteLine()`.
+
+---
+
+**Copilot AI Acknowledgement:**
+Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.

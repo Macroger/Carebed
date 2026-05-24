@@ -1,41 +1,108 @@
-# Class Sheet: MessageTypeEnum
+# Class Sheet: MessageTypes
 
 **Namespace:** Carebed.Infrastructure.Enums
 
 ---
 
 ## Purpose
-Enumerates the high-level categories or tags for messages in the Carebed system. Useful for routing, prioritization, and UI display.
+Enumerates the high-level categories or tags for messages in the Carebed system. Useful for routing, prioritization, filtering, and UI display.
 
 ---
 
 ## Enum Definition
 ```
-public enum MessageTypeEnum
+public enum MessageTypes
 ```
 
 ---
 
 ## Values
 - `Undefined = 0`
+  - Default value for unspecified or unknown message types.
+
 - `SensorData`
+  - Sensor reading or telemetry data message.
+
 - `Alert`
+  - Alert message triggered by the system.
+
+- `AlertClear`
+  - Message to clear an active alert.
+
+- `AlertAction`
+  - Action taken in response to an alert.
+
+- `AlertClearAck`
+  - Acknowledgment that an alert has been cleared.
+
 - `ActuatorCommand`
+  - Command message sent to an actuator.
+
+- `ActuatorCommandAck`
+  - Acknowledgment that an actuator command was received.
+
 - `ActuatorStatus`
+  - Status message from an actuator.
+
+- `ActuatorError`
+  - Error message from an actuator.
+
+- `ActuatorTelemetry`
+  - Telemetry data from an actuator (e.g., position, load).
+
+- `ActuatorInventory`
+  - Inventory or discovery message for available actuators.
+
+- `SensorCommand`
+  - Command message sent to a sensor.
+
+- `SensorCommandAck`
+  - Acknowledgment that a sensor command was received.
+
+- `SensorInventory`
+  - Inventory or discovery message for available sensors.
+
+- `SensorError`
+  - Error message from a sensor.
+
+- `SensorStatus`
+  - Status message from a sensor.
+
 - `System`
+  - System-level message (initialization, shutdown, etc.).
+
+- `LoggerCommandResponse`
+  - Response from logging commands or operations.
 
 ---
 
 ## Usage Example
 ```csharp
-var type = MessageTypeEnum.SensorData;
+var messageType = MessageTypes.SensorData;
+var envelope = new MessageEnvelope<SensorData>(data, MessageOrigins.SensorManager, messageType);
+
+// Routing based on type
+switch (envelope.MessageType)
+{
+    case MessageTypes.SensorData:
+        // Handle sensor data
+        break;
+    case MessageTypes.ActuatorCommand:
+        // Handle actuator command
+        break;
+    default:
+        // Handle other types
+        break;
+}
 ```
 
 ---
 
 ## Notes
 - Extend this enum as new message types are added to the system.
-- Used in message envelopes and event bus logic.
+- Used in message envelopes and event bus logic for message routing and filtering.
+- Provides type-safe message categorization for subscriber filtering and handling.
+- Each message type typically corresponds to a specific message class (e.g., `SensorData`, `ActuatorCommandMessage`).
 
 ---
 

@@ -1,61 +1,91 @@
 # Class Sheet: SensorData
 
-**Namespace:** Carebed.Infrastructure.Message
+**Namespace:** Carebed.Infrastructure.Message.SensorMessages
 
 ---
 
 ## Purpose
-Represents a strongly-typed, immutable record for sensor data messages in the Carebed system. Used for transporting sensor readings and related metadata.
+Represents a strongly-typed, immutable record for sensor data messages in the Carebed system. Used for transporting sensor readings and related metadata through the event bus.
 
 ---
 
 ## Record Definition
 ```
-public sealed record SensorData(
-    double Value,
-    string? Source = null,
-    bool IsCritical = false,
-    IReadOnlyDictionary<string, string>? Metadata = null
-) : IEventMessage
+public record SensorData
 ```
 
 ---
 
-## Properties
-- `double Value`
-  - The sensor reading value.
-- `string? Source`
-  - Optional source identifier for the data (e.g., sensor location).
-- `bool IsCritical`
-  - Indicates if the message is critical.
-- `IReadOnlyDictionary<string, string>? Metadata`
-  - Optional dictionary for additional metadata.
-- `DateTime CreatedAt { get; init; }`
-  - Timestamp when the message was created (UTC).
-- `Guid CorrelationId { get; init; }`
-  - Unique identifier for correlating related operations or requests.
-- `MessageTypeEnum MessageType { get; init; }`
-  - Type of message (default: SensorData).
+## Properties (All Required Init-Only)
+- `double Value { get; init; }`
+  - The measured value from the sensor (e.g., temperature reading, heart rate).
+  - Required property.
+
+- `string Source { get; init; }`
+  - The unique identifier or logical name of the sensor (e.g., "tempSensor1", "RoomA_EEG").
+  - Required property.
+
+- `SensorTypes SensorType { get; init; }`
+  - The type of sensor (e.g., Temperature, HeartRate, EEG).
+  - Required property for classification.
+
+- `bool IsCritical { get; init; }`
+  - Indicates if the reading is considered critical (e.g., out of safe range).
+  - Required property.
 
 ---
 
-## Explicit Interface Implementations (IEventMessage)
-- `string? Source`
-- `IReadOnlyDictionary<string, string>? Metadata`
-- `bool IsCritical`
+## Properties (Optional Init-Only)
+- `DateTime CreatedAt { get; init; }`
+  - Timestamp when the reading was taken (defaults to current UTC time).
+
+- `Guid CorrelationId { get; init; }`
+  - Unique identifier for correlating related messages and events.
+  - Defaults to a new Guid if not specified.
+
+- `IReadOnlyDictionary<string, string>? Metadata { get; init; }`
+  - Optional dictionary for additional metadata (e.g., units, calibration info).
+
+- `SensorStates? State { get; init; }`
+  - Optional sensor state at the time of reading (e.g., Active, Idle, Error).
+
+---
+
+## Methods
+- `override string ToString()`
+  - Returns a string representation of the sensor data record.
+  - Format: `SensorData: Value={Value}, Source={Source}, SensorType={SensorType}, IsCritical={IsCritical}, CreatedAt={CreatedAt}, CorrelationId={CorrelationId}`
 
 ---
 
 ## Usage Example
 ```csharp
-var data = new SensorData(42.0, "Room A", false, null);
+var sensorData = new SensorData
+{
+    Value = 98.6,
+    Source = "tempSensor1",
+    SensorType = SensorTypes.Temperature,
+    IsCritical = false,
+    CreatedAt = DateTime.UtcNow,
+    CorrelationId = Guid.NewGuid(),
+    State = SensorStates.Active
+};
+
+var envelope = new MessageEnvelope<SensorData>(
+    sensorData, 
+    MessageOrigins.SensorManager, 
+    MessageTypes.SensorData
+);
 ```
 
 ---
 
 ## Notes
-- Immutable record type for safe message passing.
-- Used as the payload for message envelopes and event bus communication.
+- Immutable record type ensures safe message passing through the event bus.
+- All required properties must be initialized at creation time.
+- Used as the payload for message envelopes in sensor-related event bus communication.
+- The record type provides value equality semantics and convenient copy semantics.
+- Init-only properties prevent modification after creation, ensuring immutability.
 
 ---
 

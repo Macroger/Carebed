@@ -1,0 +1,107 @@
+# Class Sheet: IManager
+
+**Namespace:** Carebed.Managers
+
+---
+
+## Purpose
+Defines the minimal lifecycle contract for application managers in the Carebed system. Provides a standardized interface for starting, stopping, and cleaning up manager instances that coordinate with the event bus and manage system components.
+
+---
+
+## Interface Definition
+```
+public interface IManager : IDisposable
+```
+
+---
+
+## Inheritance
+- Implements `IDisposable`
+- Defines lifecycle methods for system managers
+
+---
+
+## Methods
+
+### Lifecycle Management
+- `void Start()`
+  - Starts the manager and its associated operations.
+  - Called when the manager should begin active operation (e.g., subscribing to events, starting timers, initializing services).
+  - Implementations should be idempotent where possible (calling Start multiple times should not cause issues).
+
+- `void Stop()`
+  - Stops the manager and its associated operations.
+  - Called when the manager should cease active operation (e.g., unsubscribing from events, stopping timers).
+  - Implementations should be idempotent where possible (calling Stop multiple times should not cause issues).
+
+### Resource Cleanup (inherited from IDisposable)
+- `void Dispose()`
+  - Releases resources used by the manager.
+  - Inherited from `IDisposable`.
+  - Called when the manager is no longer needed.
+  - Implementations should call `Stop()` if necessary and clean up unmanaged resources.
+
+---
+
+## Implementation Notes
+- **Start/Stop Pattern**: Managers follow a simple start/stop lifecycle pattern for runtime control.
+- **IDisposable**: Managers implement `IDisposable` to ensure proper cleanup of resources such as timers, subscriptions, and file handles.
+- **Typical Implementation**: 
+  - `Start()` typically subscribes to event bus messages or activates monitoring.
+  - `Stop()` typically unsubscribes from event bus messages or deactivates monitoring.
+  - `Dispose()` typically calls `Stop()` and cleans up unmanaged resources.
+
+---
+
+## Usage Example
+```csharp
+// Managers are created and registered as IManager instances
+List<IManager> managers = new List<IManager>
+{
+	new SensorManager(eventBus, sensors),
+	new ActuatorManager(eventBus, actuators),
+	new AlertManager(eventBus),
+	new LoggingManager(logDir, logFile, logger, eventBus)
+};
+
+// Start all managers
+foreach (var manager in managers)
+{
+	manager.Start();
+}
+
+// Application runs...
+
+// Stop and dispose of all managers
+foreach (var manager in managers)
+{
+	manager.Stop();
+	manager.Dispose();
+}
+```
+
+---
+
+## Implementations in Carebed System
+The following managers implement the `IManager` interface:
+
+1. **SensorManager** - Manages sensors, polls data, and publishes to event bus.
+2. **ActuatorManager** - Manages actuators, routes commands, and publishes status messages.
+3. **AlertManager** - Monitors sensor/actuator messages and generates alerts.
+4. **LoggingManager** - Logs all event bus messages to files.
+
+---
+
+## Notes
+- **Minimal Interface**: IManager intentionally keeps the interface small to allow flexibility in manager implementations.
+- **Event-Driven Architecture**: Most managers interact primarily through the event bus rather than direct API calls.
+- **Lifecycle Control**: The Start/Stop pattern allows managers to be dynamically activated or deactivated at runtime.
+- **Resource Management**: The IDisposable interface ensures proper cleanup when managers are no longer needed.
+- **System Initializer**: The `SystemInitializer` class instantiates and manages all system managers.
+- **Composition Root**: Managers are typically instantiated together in the composition root (SystemInitializer) for easy testing and dependency injection.
+
+---
+
+**Copilot AI Acknowledgement:**
+Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.

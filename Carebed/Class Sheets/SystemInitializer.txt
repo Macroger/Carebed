@@ -1,0 +1,225 @@
+# Class Sheet: SystemInitializer
+
+**Namespace:** Carebed.Infrastructure
+
+---
+
+## Purpose
+Factory class responsible for initializing and composing the entire Carebed system. Acts as the composition root, creating all sensor and actuator instances, instantiating all managers, initializing the event bus, and orchestrating the startup of the application.
+
+---
+
+## Class Definition
+```
+public static class SystemInitializer
+```
+
+---
+
+## Nature
+- **Static Utility Class**: Contains only static methods; not intended to be instantiated.
+- **Factory/Composition Root**: Responsible for creating and wiring all system components.
+
+---
+
+## Static Methods
+
+### Main Initialization
+- `public static (BasicEventBus eventBus, List<IManager> managers, MainDashboard dashboard) Initialize()`
+  - Initializes the entire Carebed system and returns the core components.
+  - Returns: A tuple containing:
+	- `eventBus`: The initialized BasicEventBus instance.
+	- `managers`: List of initialized managers (SensorManager, ActuatorManager, AlertManager, LoggingManager).
+	- `dashboard`: The main UI dashboard.
+  - Initialization Steps:
+	1. **Create Event Bus**: Instantiates a new `BasicEventBus`.
+	2. **Create Sensors**: Instantiates a collection of concrete sensor implementations:
+	   - `TemperatureSensor` (temp_sensor)
+	   - `BloodOxygenSensor` (blood_o2_sensor)
+	   - `EegSensor` (eeg_sensor)
+	   - `HeartRateSensor` (heart_rate_sensor)
+	   - `PatientUpSensor` (patient_up_sensor)
+	3. **Create Actuators**: Instantiates a collection of concrete actuator implementations:
+	   - `SimulatedBedLamp` (SimulatedBedLampActuator)
+	   - `SimulatedBedPosition` (SimulatedBedPositionActuator)
+	   - `SimulatedHeadTilt` (SimulatedHeadTiltActuator)
+	   - `SimulatedLegRaise` (SimulatedLegRaiseActuator)
+	4. **Create SensorManager**: Instantiates with event bus, sensor list, and polling interval (1500 ms).
+	5. **Create ActuatorManager**: Instantiates with event bus and actuator list.
+	6. **Create AlertManager**: Instantiates with event bus.
+	7. **Create LoggingManager**: 
+	   - Sets log directory to "Logs".
+	   - Sets log file name to "app_log.txt".
+	   - Creates file path by combining directory and file name.
+	   - Instantiates `SimpleFileLogger` with combined path.
+	   - Instantiates LoggingManager with all parameters.
+	8. **Collect Managers**: Creates a list containing all four managers in order.
+	9. **Create Dashboard**: Instantiates `MainDashboard` UI with event bus reference.
+	10. **Start All Managers**: Iterates through manager list and calls `Start()` on each.
+	11. **Return Components**: Returns tuple of (eventBus, managers, dashboard).
+
+---
+
+## Initialization Sequence
+
+```
+1. BasicEventBus created
+2. Sensors instantiated (5 total)
+3. Actuators instantiated (4 total)
+4. SensorManager created and configured
+5. ActuatorManager created and configured
+6. AlertManager created and configured
+7. LoggingManager created, configured, and logs directory set up
+8. Dashboard UI created
+9. All managers started in order
+10. System ready for operation
+```
+
+---
+
+## Components Created
+
+### Sensors
+- **TemperatureSensor** (id: "temp_sensor")
+  - Monitors patient body temperature.
+
+- **BloodOxygenSensor** (id: "blood_o2_sensor")
+  - Monitors blood oxygen levels.
+
+- **EegSensor** (id: "eeg_sensor")
+  - Monitors brain electrical activity.
+
+- **HeartRateSensor** (id: "heart_rate_sensor")
+  - Monitors heart rate.
+
+- **PatientUpSensor** (id: "patient_up_sensor")
+  - Detects if patient is up/mobile.
+
+### Actuators
+- **SimulatedBedLamp** (id: "SimulatedBedLampActuator")
+  - Bed lamp control.
+
+- **SimulatedBedPosition** (id: "SimulatedBedPositionActuator")
+  - Bed position adjustment (height, tilt).
+
+- **SimulatedHeadTilt** (id: "SimulatedHeadTiltActuator")
+  - Head section tilt control.
+
+- **SimulatedLegRaise** (id: "SimulatedLegRaiseActuator")
+  - Leg section raise control.
+
+### Managers
+- **SensorManager**
+  - Polls sensors at 1500 ms interval.
+  - Publishes sensor data to event bus.
+
+- **ActuatorManager**
+  - Routes commands to actuators.
+  - Publishes actuator status and errors.
+
+- **AlertManager**
+  - Monitors all messages for alert conditions.
+  - Publishes alerts when critical conditions detected.
+
+- **LoggingManager**
+  - Logs all event bus activity to file.
+  - Log location: "Logs/app_log.txt".
+
+---
+
+## Usage Example
+```csharp
+// Initialize the entire system
+var (eventBus, managers, dashboard) = SystemInitializer.Initialize();
+
+// System is now fully operational with all managers started
+// Sensors are being polled, event bus is active, logging is active
+
+// Display the dashboard UI
+dashboard.Show();
+
+// Application runs...
+
+// On shutdown: stop all managers
+foreach (var manager in managers)
+{
+	manager.Stop();
+	manager.Dispose();
+}
+
+// Shutdown event bus
+eventBus.Shutdown();
+
+// Close UI
+dashboard.Close();
+```
+
+---
+
+## Configuration
+
+### Polling Interval
+- **SensorManager**: 1500 milliseconds (1.5 seconds) between polls.
+- Configurable by modifying the `intervalMilliseconds` parameter in `SystemInitializer`.
+
+### Logging
+- **Log Directory**: "Logs" (relative to application working directory).
+- **Log File**: "app_log.txt".
+- **Logger Type**: `SimpleFileLogger` (file-based implementation).
+
+### Event Bus
+- **Type**: `BasicEventBus`.
+- **Dispatch Model**: Synchronous, in-memory, thread-pool based.
+
+---
+
+## Extensibility
+
+### Adding New Sensors
+1. Create new sensor class inheriting from `AbstractSensor`.
+2. Add instantiation to the sensors collection in `Initialize()`.
+3. Recompile and run.
+
+### Adding New Actuators
+1. Create new actuator class implementing `IActuator`.
+2. Add instantiation to the actuators collection in `Initialize()`.
+3. Update command mapping in `ActuatorManager` if needed.
+4. Recompile and run.
+
+### Adding New Managers
+1. Create new manager class implementing `IManager`.
+2. Instantiate in `Initialize()`.
+3. Add to managers list.
+4. Call `Start()` on the manager before returning.
+5. Recompile and run.
+
+### Alternative Event Bus Implementation
+1. Create new event bus class inheriting from `AbstractEventBus`.
+2. Change `BasicEventBus` to your implementation in `Initialize()`.
+3. Recompile and run.
+
+---
+
+## Composition Root Pattern
+SystemInitializer implements the **Composition Root** pattern, centralizing all object creation and wiring. This provides:
+- **Single Point of Initialization**: All components created in one place.
+- **Easy Testing**: Can be replaced with test-specific initialization.
+- **Configuration Clarity**: All defaults and configurations visible in one method.
+- **Dependency Management**: All dependencies wired correctly at initialization.
+
+---
+
+## Notes
+- **Static Factory**: Uses static method for simplicity; alternative would be to create an instance-based factory class.
+- **Eager Initialization**: All components are instantiated immediately; lazy initialization could be added if needed.
+- **Sensor Polling Interval**: Set to 1500 ms for a balance between responsiveness and resource usage.
+- **Simulated Components**: All sensors and actuators are simulated (not connected to real hardware).
+- **UI Integration**: Returns dashboard reference so caller can display and manage UI lifecycle.
+- **Manager Ordering**: Managers started in order (Sensor, Actuator, Alert, Logging) to ensure proper initialization sequence.
+- **Log Directory Auto-Creation**: LoggingManager automatically creates the "Logs" directory if it doesn't exist.
+- **Thread-Safe Event Bus**: BasicEventBus provides thread-safe message dispatch across all managers.
+
+---
+
+**Copilot AI Acknowledgement:**
+Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.

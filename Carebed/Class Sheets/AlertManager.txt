@@ -1,0 +1,214 @@
+# Class Sheet: AlertManager
+
+**Namespace:** Carebed.Managers
+
+---
+
+## Purpose
+Monitors event bus messages from sensors and actuators to detect alert conditions. Generates alert actions when critical conditions are detected and manages clearing of active alerts. Acts as a central alert orchestration hub for the Carebed system.
+
+---
+
+## Class Definition
+```
+public class AlertManager : IManager
+```
+
+---
+
+## Inheritance
+- Implements `IManager`
+- Implements `IDisposable` (via IManager)
+
+---
+
+## Constructors
+- `AlertManager(IEventBus eventBus)`
+  - Initializes a new instance of the AlertManager.
+  - Parameters:
+	- `eventBus`: The event bus for subscribing to sensor/actuator messages and publishing alerts.
+  - Initialization Steps:
+	1. Stores the event bus reference.
+	2. Initializes alert tracking dictionaries for sensor and actuator origins.
+	3. Registers alert tracking dictionary in the main alert registry.
+	4. Sets up concrete handler delegates for sensor and actuator messages.
+	5. Sets up handler for alert clear messages from the UI.
+
+---
+
+## Fields (Private)
+
+### State Management
+- `private int _alertSequence`
+  - Alert sequence counter for numbering alerts.
+  - Incremented for each new alert generated.
+
+- `private readonly Dictionary<string, IEventMessage> _activeSensorAlerts`
+  - Tracks currently active alerts per sensor (keyed by sensor ID).
+
+- `private readonly Dictionary<string, IEventMessage> _activeActuatorAlerts`
+  - Tracks currently active alerts per actuator (keyed by actuator ID).
+
+- `private readonly Dictionary<MessageOrigins, Dictionary<string, IEventMessage>> _activeAlerts`
+  - General registry of active alerts organized by origin (SensorManager, ActuatorManager, etc.).
+  - Maps each origin to its specific alert dictionary.
+
+### Event Handlers
+- `private readonly Action<MessageEnvelope<SensorTelemetryMessage>> _sensorTelemetryHandler`
+- `private readonly Action<MessageEnvelope<SensorStatusMessage>> _sensorStatusHandler`
+- `private readonly Action<MessageEnvelope<SensorErrorMessage>> _sensorErrorHandler`
+- `private readonly Action<MessageEnvelope<ActuatorTelemetryMessage>> _actuatorTelemetryHandler`
+- `private readonly Action<MessageEnvelope<ActuatorStatusMessage>> _actuatorStatusHandler`
+- `private readonly Action<MessageEnvelope<ActuatorErrorMessage>> _actuatorErrorHandler`
+- `private readonly Action<MessageEnvelope<AlertClearMessage<IEventMessage>>> _uiAlertClearActionHandler`
+  - Delegates for handling specific message types from event bus.
+
+---
+
+## Public Methods
+
+### Lifecycle Management
+- `void Start()`
+  - Starts the AlertManager by subscribing to all monitored message types.
+  - Subscribes to:
+	- Sensor messages: Telemetry, Status, Error
+	- Actuator messages: Telemetry, Status, Error
+	- UI alert clear messages
+  - Called when the manager should begin monitoring for alerts.
+
+- `void Stop()`
+  - Stops the AlertManager by unsubscribing from all monitored message types.
+  - Called when the manager should cease monitoring for alerts.
+
+- `void Dispose()`
+  - Disposes the AlertManager.
+  - Calls `Stop()` to clean up subscriptions.
+
+---
+
+## Private Methods
+
+### Alert Detection and Generation
+- `private void HandleSensorMessage<T>(MessageEnvelope<T> envelope) where T : SensorMessageBase`
+  - Handles sensor messages and detects alert conditions.
+  - Alert Conditions:
+	- `SensorErrorMessage` triggers an alert.
+	- `SensorStatusMessage` with state == `Error` triggers an alert.
+	- `SensorTelemetryMessage` with `IsCritical` == true triggers an alert.
+  - Processing Steps:
+	1. Extracts payload and checks for alert conditions.
+	2. Checks if alert already exists (via CorrelationId) to prevent duplicates.
+	3. Updates active sensor alerts dictionary.
+	4. Creates and publishes `AlertActionMessage<T>` with alert details.
+  - Parameters: `envelope` - The message envelope containing the sensor message.
+
+- `private void HandleActuatorMessage<T>(MessageEnvelope<T> envelope) where T : ActuatorMessageBase`
+  - Handles actuator messages and detects alert conditions.
+  - Alert Conditions:
+	- `ActuatorErrorMessage` triggers an alert.
+	- `ActuatorStatusMessage` with state == `Error` triggers an alert.
+	- `ActuatorTelemetryMessage` with `IsCritical` == true triggers an alert.
+  - Processing Steps: Similar to `HandleSensorMessage`, adapted for actuator sources.
+  - Parameters: `envelope` - The message envelope containing the actuator message.
+
+### Alert Clearing
+- `private void HandleAlertClear(MessageEnvelope<AlertClearMessage<IEventMessage>> envelope)`
+  - Handles alert clear requests from the UI or other components.
+  - Supports two modes:
+	1. **Clear All**: If `clearAllMessages` == true, clears all active alerts and publishes confirmation ACK.
+	2. **Clear Specific**: Removes specific alert by matching sensor/actuator ID and publishes targeted ACK.
+  - Publishes `AlertClearAckMessage` to confirm the clear operation (success or failure).
+  - Handles both sensor and actuator alert origins.
+  - Parameters: `envelope` - The message envelope containing the alert clear request.
+
+---
+
+## Usage Example
+```csharp
+// Create the alert manager with event bus
+var eventBus = new BasicEventBus();
+var alertManager = new AlertManager(eventBus);
+
+// Start monitoring for alerts
+alertManager.Start();
+
+// When a critical sensor reading is detected:
+// SensorManager publishes SensorTelemetryMessage with IsCritical=true
+var criticalReading = new SensorTelemetryMessage
+{
+	SensorID = "temp1",
+	Data = new SensorData { Value = 105.0, IsCritical = true, ... }
+};
+var envelope = new MessageEnvelope<SensorTelemetryMessage>(
+	criticalReading,
+	MessageOrigins.SensorManager,
+	MessageTypes.ActuatorTelemetry
+);
+await eventBus.PublishAsync(envelope);
+// AlertManager detects critical condition and publishes AlertActionMessage
+
+// Later, UI requests alert clear:
+var clearRequest = new AlertClearMessage<IEventMessage>
+{
+	Source = "temp1",
+	Payload = criticalReading,
+	clearAllMessages = false
+};
+var clearEnvelope = new MessageEnvelope<AlertClearMessage<IEventMessage>>(
+	clearRequest,
+	MessageOrigins.UIComponent,
+	MessageTypes.AlertClear
+);
+await eventBus.PublishAsync(clearEnvelope);
+// AlertManager processes clear and publishes AlertClearAckMessage
+
+// Stop monitoring
+alertManager.Stop();
+alertManager.Dispose();
+```
+
+---
+
+## Event Participation
+- **Subscribes To:**
+  - `SensorTelemetryMessage` - Sensor readings for critical value detection.
+  - `SensorStatusMessage` - Sensor state changes for error detection.
+  - `SensorErrorMessage` - Explicit sensor errors.
+  - `ActuatorTelemetryMessage` - Actuator readings for critical value detection.
+  - `ActuatorStatusMessage` - Actuator state changes for error detection.
+  - `ActuatorErrorMessage` - Explicit actuator errors.
+  - `AlertClearMessage<IEventMessage>` - UI requests to clear alerts.
+
+- **Publishes:**
+  - `AlertActionMessage<T>` - Alert notifications when alert conditions are detected.
+  - `AlertClearAckMessage` - Acknowledgment of alert clear requests (success or failure).
+
+---
+
+## Alert Deduplication
+- Tracks active alerts to prevent duplicate alert actions for the same condition.
+- Deduplication check: If an alert already exists with the same CorrelationId, the new alert is ignored.
+- This prevents alert spam when sensors/actuators repeatedly publish the same error or critical value.
+
+---
+
+## Alert Sequence Numbering
+- Each new alert is assigned a unique `alertNumber` using the `_alertSequence` counter.
+- This allows the UI and other components to track and reference specific alerts.
+
+---
+
+## Notes
+- **Event-Driven**: AlertManager is passive and purely reactive; it monitors event bus messages and generates alerts in response.
+- **Origin-Specific Tracking**: Maintains separate alert dictionaries for each origin (sensors, actuators) for efficient lookup and clearing.
+- **Deduplication**: Prevents alert flooding by tracking active alerts and ignoring duplicates based on CorrelationId.
+- **Flexible Alert Clearing**: Supports both clearing all alerts and clearing specific alerts by ID.
+- **Critical Value Detection**: Detects critical conditions from telemetry messages based on the `IsCritical` flag.
+- **Multi-Source Monitoring**: Monitors both sensors and actuators, unifying alert handling across different component types.
+- **UI Integration**: Designed to work with UI components that request alert clearing via the event bus.
+- **Extensibility**: New sensor/actuator message types can be monitored by adding additional handler registrations in `Start()`.
+
+---
+
+**Copilot AI Acknowledgement:**
+Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.

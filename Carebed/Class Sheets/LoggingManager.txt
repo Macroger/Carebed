@@ -1,0 +1,252 @@
+# Class Sheet: LoggingManager
+
+**Namespace:** Carebed.Managers
+
+---
+
+## Purpose
+Manages centralized logging of all event bus messages to file storage. Subscribes to global event bus messages, routes them to a file logging service, and handles logging configuration commands. Provides a unified logging hub for system-wide diagnostics and audit trails.
+
+---
+
+## Class Definition
+```
+public class LoggingManager : IManager, IDisposable
+```
+
+---
+
+## Inheritance
+- Implements `IManager`
+- Implements `IDisposable` (explicit implementation in addition to IManager)
+
+---
+
+## Constructors
+- `LoggingManager(string logDir, string logFileName, IFileLoggingService loggingService, IEventBus eventBus)`
+  - Initializes a new instance of the LoggingManager.
+  - Parameters:
+	- `logDir`: The directory where log files will be stored.
+	- `logFileName`: The name of the log file.
+	- `loggingService`: Implementation of file logging service.
+	- `eventBus`: The event bus for subscribing and receiving commands.
+  - Initialization Steps:
+	1. Stores the logging service and event bus references.
+	2. Calls `UpdateLogLocation()` to validate and set up the log directory/file.
+	3. Creates handler delegates for log messages and log commands.
+	4. Throws `InvalidOperationException` if initialization fails.
+
+---
+
+## Fields (Private)
+
+### Configuration
+- `private string _logDir`
+  - The current log directory path.
+
+- `private string _logFileName`
+  - The current log file name.
+
+### State Management
+- `private bool _isSubscribed`
+  - Tracks whether the manager is subscribed to event bus messages.
+
+- `private bool _isLoggerStarted`
+  - Tracks whether the logging service has been started.
+
+### Dependencies
+- `private readonly IEventBus _eventBus`
+  - Reference to the event bus for subscribing and publishing.
+
+- `private readonly IFileLoggingService _loggingService`
+  - Reference to the file logging service implementation.
+
+### Event Handlers
+- `private readonly Action<IMessageEnvelope> _logMessageHandler`
+  - Delegate for handling all event bus messages (global subscription).
+
+- `private readonly Action<MessageEnvelope<LoggerCommandMessage>> _logCommandHandler`
+  - Delegate for handling logger command messages.
+
+---
+
+## Public Methods
+
+### Lifecycle Management
+- `void Start()`
+  - Starts the logging service and subscribes to event bus messages.
+  - Processing Steps:
+	1. Returns if already started (idempotent).
+	2. If not already subscribed: subscribes to global messages and logger commands.
+	3. Starts the underlying logging service.
+	4. Sets `_isLoggerStarted` and `_isSubscribed` flags to true.
+
+- `void Stop()`
+  - Stops the logging service and unsubscribes from event bus messages.
+  - Processing Steps:
+	1. Returns if not started (idempotent).
+	2. If subscribed: unsubscribes from global messages and logger commands.
+	3. Stops the underlying logging service.
+	4. Sets `_isLoggerStarted` and `_isSubscribed` flags to false.
+
+- `void Dispose()`
+  - Disposes the LoggingManager and releases all resources.
+  - Processing Steps:
+	1. Calls `Stop()` if the logger is still running.
+	2. Unsubscribes from event bus if still subscribed.
+	3. Disposes the logging service.
+
+---
+
+## Private Methods
+
+### Event Handlers
+- `private async Task HandleLogCommand(MessageEnvelope<LoggerCommandMessage> envelope)`
+  - Handles incoming logger command messages from the event bus.
+  - Supported Commands:
+	- `LoggerCommands.Start`: Starts the logging service (publishes ACK).
+	- `LoggerCommands.Stop`: Stops the logging service (publishes ACK).
+	- `LoggerCommands.AdjustLogFilePath`: Updates log directory and file path (publishes ACK with success/failure).
+	- `LoggerCommands.GetLogFilePath`: Returns current log file path in metadata (publishes ACK with path info).
+  - Processing Steps:
+	1. Extracts command from message envelope.
+	2. Executes command-specific logic.
+	3. Creates and publishes `LoggerCommandAckMessage` with result.
+  - Returns: A `Task` representing the asynchronous operation.
+  - Parameters: `envelope` - The message envelope containing the logger command.
+
+- `public void HandleLogMessage(IMessageEnvelope envelope)`
+  - Handles incoming log messages from global event bus subscription.
+  - Simply passes the message envelope to the logging service for recording.
+  - Parameters: `envelope` - The message envelope to log.
+
+### Configuration
+- `public bool UpdateLogLocation(string logDir, string filePath)`
+  - Updates the log directory and file path.
+  - Processing Steps:
+	1. Creates the log directory if it doesn't exist.
+	2. Validates the file path using `IsValidFilePath()`.
+	3. Throws exception if logger is currently running.
+	4. Updates `_logDir` and `_logFileName` fields.
+	5. Calls logging service to change file path.
+  - Returns: Boolean indicating success of the operation.
+  - Throws: 
+	- `ArgumentException` if file path is invalid.
+	- `InvalidOperationException` if logger is running.
+  - Parameters:
+	- `logDir`: The new log directory.
+	- `filePath`: The new log file name/path.
+
+### Validation
+- `public static bool IsValidFilePath(string path)`
+  - Validates if a file path is valid for use.
+  - Checks:
+	- Path is not null or whitespace.
+	- Path contains no invalid file name or path characters.
+  - Returns: True if path is valid; false otherwise.
+  - Parameters: `path` - The file path to validate.
+
+---
+
+## Usage Example
+```csharp
+// Create the logging manager
+string logDir = "Logs";
+string logFileName = "application.log";
+var loggingService = new SimpleFileLogger(Path.Combine(logDir, logFileName));
+var eventBus = new BasicEventBus();
+
+var loggingManager = new LoggingManager(logDir, logFileName, loggingService, eventBus);
+
+// Start logging
+loggingManager.Start();
+
+// Now all event bus messages are logged to file
+// ... application runs ...
+
+// Change log file location at runtime (while stopped)
+loggingManager.Stop();
+loggingManager.UpdateLogLocation("NewLogs", "new_application.log");
+loggingManager.Start();
+
+// Request current log file path via command
+var commandMessage = new LoggerCommandMessage
+{
+	Command = LoggerCommands.GetLogFilePath
+};
+var envelope = new MessageEnvelope<LoggerCommandMessage>(
+	commandMessage,
+	MessageOrigins.UIComponent,
+	MessageTypes.System
+);
+await eventBus.PublishAsync(envelope);
+// LoggingManager publishes LoggerCommandAckMessage with file path in metadata
+
+// Stop logging
+loggingManager.Stop();
+loggingManager.Dispose();
+```
+
+---
+
+## Supported Commands
+
+### LoggerCommands.Start
+- Starts the logging service if not already started.
+- Publishes positive ACK if successful, negative ACK if already running.
+
+### LoggerCommands.Stop
+- Stops the logging service if currently running.
+- Publishes positive ACK if successful, negative ACK if not running.
+
+### LoggerCommands.AdjustLogFilePath
+- Updates the log directory and file name.
+- Requires metadata with keys: "LogDirectory" and "FilePath".
+- Can only be called when logger is stopped.
+- Publishes ACK with success/failure result.
+
+### LoggerCommands.GetLogFilePath
+- Returns the current log file path.
+- Publishes ACK with path information in metadata.
+
+---
+
+## Event Participation
+- **Subscribes To:**
+  - Global messages (all IMessageEnvelope) - For logging all system activity.
+  - `LoggerCommandMessage` - For handling logging configuration commands.
+
+- **Publishes:**
+  - `LoggerCommandAckMessage` - Acknowledgment of commands with success/failure result and optional metadata.
+
+---
+
+## File Logging Integration
+- Delegates actual file I/O to `IFileLoggingService` implementation (e.g., `SimpleFileLogger`).
+- Supports dynamic log file path changes via `UpdateLogLocation()`.
+- Directory is created automatically if it doesn't exist.
+- File path validation prevents invalid paths from being set.
+
+---
+
+## Thread Safety
+- Start/Stop operations are idempotent (can be called multiple times without issues).
+- Flag checks (`_isSubscribed`, `_isLoggerStarted`) prevent duplicate subscriptions or service starts.
+
+---
+
+## Notes
+- **Comprehensive Logging**: Subscribes to ALL event bus messages (global subscription) to capture complete system activity.
+- **Global Visibility**: Ideal for auditing, debugging, and system diagnostics.
+- **Configuration Commands**: Supports runtime configuration changes via event bus commands.
+- **File Management**: Handles log directory creation and validation automatically.
+- **Idempotent Operations**: Start/Stop/Dispose operations are safe to call multiple times.
+- **Service Integration**: Abstracts actual logging implementation via `IFileLoggingService` interface.
+- **Command Acknowledgment**: Every command receives an ACK indicating success or failure.
+- **Path Validation**: Prevents invalid file paths from corrupting log configuration.
+- **Runtime Flexibility**: Log file path can be changed at runtime (when logger is stopped).
+
+---
+
+**Copilot AI Acknowledgement:**
+Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.

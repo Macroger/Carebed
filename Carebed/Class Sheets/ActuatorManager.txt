@@ -1,0 +1,197 @@
+# Class Sheet: ActuatorManager
+
+**Namespace:** Carebed.Managers
+
+---
+
+## Purpose
+Manages a collection of actuators and orchestrates their operations. Routes actuator commands from the event bus to the appropriate actuators, handles state change events, emits inventory messages, and publishes acknowledgment and status messages back to the event bus.
+
+---
+
+## Class Definition
+```
+public class ActuatorManager : IManager
+```
+
+---
+
+## Inheritance
+- Implements `IManager`
+- Implements `IDisposable` (via IManager)
+
+---
+
+## Constructors
+- `ActuatorManager(IEventBus eventBus, IEnumerable<IActuator> actuators)`
+  - Initializes a new instance of the ActuatorManager.
+  - Parameters:
+	- `eventBus`: The event bus for publishing messages and receiving commands.
+	- `actuators`: Collection of actuators to manage.
+  - Initialization Steps:
+	1. Stores the event bus reference.
+	2. Registers state change handlers for each actuator.
+	3. Stores actuators in a dictionary keyed by `ActuatorId`.
+	4. Subscribes to `ActuatorCommandMessage` events.
+	5. Emits initial `ActuatorInventoryMessage`.
+
+---
+
+## Fields (Private)
+- `private readonly IEventBus _eventBus`
+  - Reference to the event bus for publishing and subscribing.
+
+- `private Dictionary<string, IActuator> _actuators`
+  - Dictionary mapping actuator IDs to actuator instances for quick lookup.
+
+- `private readonly Dictionary<IActuator, Action<ActuatorStates>> _stateChangedHandlers`
+  - Maps each actuator to its state change handler for proper cleanup in `Dispose()`.
+
+---
+
+## Public Methods
+
+### Lifecycle Management
+- `void Start()`
+  - Starts the ActuatorManager by subscribing to `ActuatorCommandMessage` events.
+  - Called when the manager should begin receiving and processing commands.
+
+- `void Stop()`
+  - Stops the ActuatorManager by unsubscribing from `ActuatorCommandMessage` events.
+  - Called when the manager should cease receiving commands.
+
+### Core Operations
+- `void EmitActuatorInventoryMessage()`
+  - Emits an `ActuatorInventoryMessage` containing the list of managed actuators and their types.
+  - Creates metadata dictionary mapping actuator IDs to their types.
+  - Publishes asynchronously to the event bus (fire-and-forget).
+  - Useful for UI discovery and system initialization.
+
+---
+
+## Private Methods
+
+### Event Handlers
+- `private async void HandleStateChanged(IActuator actuator, ActuatorStates state)`
+  - Handles state change events from managed actuators.
+  - Behavior:
+	- If state is `Error`: Publishes `ActuatorErrorMessage`.
+	- Otherwise: Publishes `ActuatorStatusMessage`.
+  - Publishes messages asynchronously to the event bus.
+  - Parameter: 
+	- `actuator`: The actuator that changed state.
+	- `state`: The new state of the actuator.
+
+- `private async void HandleActuatorCommand(MessageEnvelope<ActuatorCommandMessage> envelope)`
+  - Handles incoming `ActuatorCommandMessage` events from the event bus.
+  - Processing Steps:
+	1. Extracts the command message from the envelope.
+	2. Checks if command is `EmitActuatorInventory` - if so, emits inventory and publishes positive ACK.
+	3. Looks up the target actuator by ID.
+	4. Maps the command to actuator-specific command if necessary.
+	5. Attempts to execute the command via `IActuator.TryExecute()`.
+	6. Publishes `ActuatorCommandAckMessage` with result (success or failure).
+  - Command Mapping: Generic commands (Activate/Deactivate) are mapped to type-specific commands based on actuator type.
+
+### Helper Methods
+- `private ActuatorCommands MapCommandForActuator(ActuatorTypes type, ActuatorCommands requested)`
+  - Maps generic actuator commands to type-specific commands.
+  - Mapping Strategy:
+	- `Activate` / `Deactivate` are mapped to type-specific variants (e.g., `ActivateLamp`, `DeactivateLamp` for Lamp actuators).
+	- Other commands are passed through unchanged.
+  - Extensible: New actuator types can be added by extending the switch statement.
+  - Returns: The mapped command or the original command if no mapping exists.
+
+- `private async Task PublishCommandAckAsync(ActuatorCommandMessage actuatorCommandMessage, bool canExecute)`
+  - Publishes an `ActuatorCommandAckMessage` to acknowledge receipt and execution capability of a command.
+  - Creates acknowledgment message with command details and execution result.
+  - Publishes asynchronously to the event bus.
+  - Parameters:
+	- `actuatorCommandMessage`: The original command message being acknowledged.
+	- `canExecute`: Whether the command was successfully executed.
+
+### Cleanup
+- `public void Dispose()`
+  - Disposes the ActuatorManager by unsubscribing from all actuator state change events.
+  - Iterates through `_stateChangedHandlers` and removes each handler.
+  - Clears the handlers dictionary.
+  - Called when the manager is no longer needed.
+
+---
+
+## Usage Example
+```csharp
+// Create a collection of actuators
+var actuators = new List<IActuator>
+{
+	new SimulatedBedLamp("lamp1"),
+	new SimulatedBedPosition("bedPosition1"),
+	new SimulatedHeadTilt("headTilt1"),
+	new SimulatedLegRaise("legRaise1")
+};
+
+// Create the manager with the event bus and actuators
+var eventBus = new BasicEventBus();
+var actuatorManager = new ActuatorManager(eventBus, actuators);
+
+// Start the manager
+actuatorManager.Start();
+
+// Send a command to an actuator
+var commandMessage = new ActuatorCommandMessage
+{
+	ActuatorId = "lamp1",
+	TypeOfActuator = ActuatorTypes.Lamp,
+	CommandType = ActuatorCommands.ActivateLamp,
+	CorrelationId = Guid.NewGuid()
+};
+var envelope = new MessageEnvelope<ActuatorCommandMessage>(
+	commandMessage,
+	MessageOrigins.UIComponent,
+	MessageTypes.ActuatorCommand
+);
+await eventBus.PublishAsync(envelope);
+// ActuatorManager receives the command, routes it to lamp1, publishes ACK
+
+// Stop and dispose
+actuatorManager.Stop();
+actuatorManager.Dispose();
+```
+
+---
+
+## Event Participation
+- **Subscribes To:**
+  - `ActuatorCommandMessage` - Commands from UI or other managers to execute on actuators.
+  - Actuator `OnStateChanged` events - Reactions to state transitions in managed actuators.
+
+- **Publishes:**
+  - `ActuatorStatusMessage` - When an actuator changes state (non-error).
+  - `ActuatorErrorMessage` - When an actuator enters Error state.
+  - `ActuatorCommandAckMessage` - Acknowledgment of command receipt and execution result.
+  - `ActuatorInventoryMessage` - Initial inventory and on-demand discovery messages.
+
+---
+
+## Command Mapping
+ActuatorManager supports mapping generic commands to type-specific commands:
+- **Lamp Actuator:**
+  - `Activate` → `ActivateLamp`
+  - `Deactivate` → `DeactivateLamp`
+- **Other Actuators:** Commands passed through unchanged (extensible for future types).
+
+---
+
+## Notes
+- **Event-Driven**: ActuatorManager is passive and command-driven; it receives commands from the event bus and publishes responses.
+- **Asynchronous**: All event handlers are async void or async Task, executing on thread-pool via the event bus.
+- **State Notifications**: State changes automatically trigger corresponding messages (status or error) to inform other system components.
+- **Command Acknowledgment**: Every command receives an acknowledgment (ACK) indicating success or failure.
+- **Inventory Discovery**: Emits inventory on startup and upon request, allowing UIs and other managers to discover available actuators.
+- **Thread-Safe**: Actuator lookup is O(1) using a dictionary; state handlers use WeakReference pattern implicitly through dictionary cleanup.
+- **Extensibility**: New actuator types can be added by implementing `IActuator` and extending command mapping logic.
+
+---
+
+**Copilot AI Acknowledgement:**
+Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.

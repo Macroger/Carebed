@@ -1,4 +1,4 @@
-# Class Sheet: MessageOriginEnum
+# Class Sheet: MessageOrigins
 
 **Namespace:** Carebed.Infrastructure.Enums
 
@@ -11,34 +11,53 @@ Enumerates the possible origins of messages in the Carebed system. Used for trac
 
 ## Enum Definition
 ```
-public enum MessageOriginEnum
+public enum MessageOrigins
 ```
 
 ---
 
 ## Values
 - `Unknown = 0`
+  - Default value for unspecified origins.
+
 - `SensorManager`
+  - Message originated from the Sensor Manager module.
+
 - `ActuatorManager`
+  - Message originated from the Actuator Manager module.
+
 - `LoggingManager`
+  - Message originated from the Logging Manager module.
+
 - `SystemInitializer`
+  - Message originated from the System Initializer.
+
 - `DisplayManager`
+  - Message originated from the Display Manager module.
+
 - `AlertManager`
+  - Message originated from the Alert Manager module.
+
 - `NetworkManager`
+  - Message originated from the Network Manager module.
+
 - `EventBus`
+  - Message originated from the Event Bus itself.
 
 ---
 
 ## Usage Example
 ```csharp
-var origin = MessageOriginEnum.SensorManager;
+var origin = MessageOrigins.SensorManager;
+var envelope = new MessageEnvelope<SensorData>(data, origin, MessageTypes.SensorData);
 ```
 
 ---
 
 ## Notes
 - Extend this enum as new modules are added to the system.
-- Used in message envelopes and event bus logic.
+- Used in message envelopes and event bus logic for message routing and categorization.
+- Provides type-safe origin tracking for debugging and logging purposes.
 
 ---
 

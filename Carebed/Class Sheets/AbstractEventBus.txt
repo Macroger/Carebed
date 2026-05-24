@@ -1,0 +1,183 @@
+# Class Sheet: AbstractEventBus
+
+**Namespace:** Carebed.Infrastructure.EventBus
+
+---
+
+## Purpose
+Provides an abstract base implementation of `IEventBus` that centralizes subscriber management logic and lifecycle operations. This class handles thread-safe subscription and unsubscription of message handlers while requiring subclasses to implement the actual message dispatch strategy via `PublishAsync<TPayload>()`.
+
+---
+
+## Class Definition
+```
+public abstract class AbstractEventBus : IEventBus
+```
+
+---
+
+## Inheritance
+- Implements `IEventBus`
+
+---
+
+## Fields
+
+### Protected Fields (for subclass use)
+- `protected readonly Dictionary<Type, List<Delegate>> _subscribers`
+  - Internal registry of message subscribers, keyed by message type.
+  - Each message type maps to a list of delegate handlers.
+  - Protected visibility allows subclasses to access subscriber data while maintaining encapsulation.
+
+- `protected readonly object _lock`
+  - Synchronization object used to ensure thread-safe access to the subscriber registry.
+  - All access to `_subscribers` and `_globalHandlers` must be protected by this lock.
+
+### Private Fields
+- `private readonly List<Action<IMessageEnvelope>> _globalHandlers`
+  - Maintains a list of handlers subscribed to receive all published messages (global notification).
+
+---
+
+## Constructors
+- `protected AbstractEventBus()`
+  - Initializes a new instance of the AbstractEventBus class.
+  - Initializes empty subscriber registry and global handlers list.
+  - Protected visibility ensures only subclasses can instantiate.
+
+---
+
+## Public Methods
+
+### Global Message Subscription
+- `void SubscribeToGlobalMessages(Action<IMessageEnvelope> handler)`
+  - Subscribes a handler to receive ALL published messages.
+  - Thread-safe: Access to `_globalHandlers` is protected by `_lock`.
+  - Parameter: `handler` - Delegate to invoke for each published message.
+
+- `void UnsubscribeFromGlobalMessages(Action<IMessageEnvelope> handler)`
+  - Unsubscribes a handler from global message notifications.
+  - Thread-safe: Access to `_globalHandlers` is protected by `_lock`.
+  - Parameter: `handler` - The same delegate previously registered.
+
+### Type-Specific Message Subscription
+- `virtual void Subscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage`
+  - Subscribes a handler to a specific event type.
+  - Thread-safe: Access to `_subscribers` is protected by `_lock`.
+  - Type Parameters: `TPayload` - The type of the event message, constrained to `IEventMessage`.
+  - Parameter: `handler` - Delegate to invoke when an event of type `TPayload` is published.
+  - Remarks: Multiple handlers can be registered for the same message type.
+
+- `virtual void Unsubscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage`
+  - Unsubscribes a handler from a specific event type.
+  - Thread-safe: Access to `_subscribers` is protected by `_lock`.
+  - Type Parameters: `TPayload` - The type of the event message, constrained to `IEventMessage`.
+  - Parameter: `handler` - The same delegate previously registered.
+  - Behavior: 
+	- If the handler is not found, no action is taken.
+	- When the last handler for a given message type is removed, the type entry is cleared from `_subscribers`.
+
+### Publishing
+- `abstract Task PublishAsync<TPayload>(MessageEnvelope<TPayload> message) where TPayload : IEventMessage`
+  - Abstract method to be implemented by subclasses.
+  - Publishes an event message asynchronously to all subscribed handlers.
+  - Type Parameters: `TPayload` - The type of the event message, constrained to `IEventMessage`.
+  - Parameter: `message` - The event message instance to publish (wrapped in a `MessageEnvelope<TPayload>`).
+  - Returns: A `Task` representing the asynchronous publish operation.
+  - Remarks: Concrete subclasses must implement this method to define the dispatch strategy (e.g., synchronous, asynchronous, queued, distributed).
+
+### Lifecycle Management
+- `virtual void Initialize()`
+  - Initializes the event bus.
+  - Remarks: This method can be overridden by subclasses to preload subscriptions, configure tracing hooks, or perform other startup tasks.
+  - Default behavior (base implementation): No-op.
+
+- `virtual void Shutdown()`
+  - Shuts down the event bus and clears all subscriptions.
+  - Thread-safe: Access to `_subscribers` is protected by `_lock`.
+  - Remarks: After calling this method, no handlers will remain registered. New subscriptions can be made after shutdown.
+
+---
+
+## Protected Methods (for subclass use)
+
+- `protected void NotifyAll(IMessageEnvelope envelope)`
+  - Helper method to notify all global handlers.
+  - Thread-safe: Copies the list of global handlers under lock before iterating.
+  - Iterates through global handlers and invokes each one.
+  - Exception handling: Silently catches exceptions from individual handlers (implementation-specific).
+  - Parameter: `envelope` - The message envelope to pass to all global handlers.
+
+- `protected List<Action<MessageEnvelope<TPayload>>> GetHandlersFor<TPayload>() where TPayload : IEventMessage`
+  - Helper method to retrieve all handlers subscribed to a specific event type.
+  - Thread-safe: Access to `_subscribers` is protected by `_lock`.
+  - Type Parameters: `TPayload` - The type of the event message, constrained to `IEventMessage`.
+  - Returns: A list of delegates representing the handlers for the given event type.
+  - Remarks: This method ensures consistent handler resolution across different event bus implementations. It uses type assignment compatibility to support inheritance hierarchies.
+
+---
+
+## Thread Safety
+- **Lock Protection**: All access to `_subscribers` and `_globalHandlers` is protected by `_lock`.
+- **Safe Subscriptions**: Multiple threads can safely call `Subscribe` and `Unsubscribe` concurrently.
+- **Safe Publishing**: Multiple threads can safely call `PublishAsync` concurrently.
+- **Handler Copy**: `NotifyAll` creates a thread-safe copy of the global handlers list before iterating to prevent modification during iteration.
+
+---
+
+## Usage Example
+```csharp
+// AbstractEventBus is abstract; use a concrete subclass like BasicEventBus
+IEventBus eventBus = new BasicEventBus();
+eventBus.Initialize();
+
+// Subscribe to a specific message type
+Action<MessageEnvelope<SensorData>> sensorHandler = (envelope) =>
+{
+	Console.WriteLine($"Sensor data: {envelope.Payload.Value}");
+};
+eventBus.Subscribe(sensorHandler);
+
+// Subscribe to all messages
+Action<IMessageEnvelope> globalHandler = (envelope) =>
+{
+	Console.WriteLine($"Message: {envelope.MessageType}");
+};
+eventBus.SubscribeToGlobalMessages(globalHandler);
+
+// Publish messages
+var sensorData = new SensorData { Value = 98.6, Source = "Temp1", ... };
+var envelope = new MessageEnvelope<SensorData>(
+	sensorData, 
+	MessageOrigins.SensorManager, 
+	MessageTypes.SensorData
+);
+await eventBus.PublishAsync(envelope);
+
+// Unsubscribe and shutdown
+eventBus.Unsubscribe(sensorHandler);
+eventBus.UnsubscribeFromGlobalMessages(globalHandler);
+eventBus.Shutdown();
+```
+
+---
+
+## Design Patterns
+- **Template Method Pattern**: AbstractEventBus provides the subscription/unsubscription template, while subclasses implement `PublishAsync` for custom dispatch behavior.
+- **Observer Pattern**: Handlers are observers that react to published events.
+- **Strategy Pattern**: Different event bus implementations (BasicEventBus, advanced queued variants) can implement different dispatch strategies.
+
+---
+
+## Notes
+- **Centralized Management**: All subscription logic is centralized in AbstractEventBus, reducing code duplication in subclasses.
+- **Type Safety**: Generic constraints ensure handlers and messages are properly typed at compile time.
+- **Thread-Safe**: All public operations are thread-safe by design using lock protection.
+- **Handler Resolution**: `GetHandlersFor<TPayload>` supports type assignment compatibility, allowing handlers subscribed to base types to receive derived type messages.
+- **Protected Access**: Subclasses can access `_subscribers` and `_lock` directly for advanced dispatch strategies.
+- **Foundation for Subclasses**: BasicEventBus and other implementations extend AbstractEventBus to provide concrete dispatch strategies.
+
+---
+
+**Copilot AI Acknowledgement:**
+Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.

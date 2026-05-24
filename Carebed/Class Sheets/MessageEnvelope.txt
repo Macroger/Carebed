@@ -17,44 +17,61 @@ public class MessageEnvelope<T> : IMessageEnvelope
 ---
 
 ## Constructors
-- `MessageEnvelope(T payload, MessageOriginEnum origin, MessageTypeEnum type = MessageTypeEnum.Undefined)`
-  - Initializes a new instance with the given payload, origin, and type. Throws `ArgumentNullException` if payload is null.
+- `MessageEnvelope(T payload, MessageOrigins origin, MessageTypes type = MessageTypes.Undefined)`
+  - Initializes a new instance with the given payload, origin, and type.
+  - Throws `ArgumentNullException` if payload is null.
 
 ---
 
 ## Properties
 - `Guid MessageId { get; }`
-  - Unique identifier for the message envelope.
+  - Unique identifier for the message envelope (auto-generated).
+
 - `DateTime Timestamp { get; }`
   - Timestamp when the message was created (UTC).
-- `MessageOriginEnum MessageOrigin { get; }`
+
+- `MessageOrigins MessageOrigin { get; }`
   - Origin of the message.
-- `MessageTypeEnum MessageType { get; }`
+
+- `MessageTypes MessageType { get; }`
   - Type of the message payload.
+
 - `T Payload { get; }`
   - The strongly-typed payload of the message.
+
 - `object IMessageEnvelope.Payload => Payload`
-  - Provides the payload as an object for non-generic access.
+  - Provides the payload as an object for non-generic access (explicit interface implementation).
 
 ---
 
 ## Methods
 - `string ToString()`
-  - Returns a string representation of the message envelope, including timestamp, origin, type, and payload type.
+  - Returns a string representation of the message envelope.
+  - Format: `[Timestamp] MessageOrigin::MessageType (Id=MessageId, PayloadType=TypeName)`
+
+- `void Dispose()` (inherited from IMessageEnvelope)
+  - Releases resources used by the message envelope.
 
 ---
 
 ## Usage Example
 ```csharp
-var envelope = new MessageEnvelope<SensorData>(sensorData, MessageOriginEnum.SensorManager, MessageTypeEnum.SensorData);
+var sensorData = new SensorData { Value = 98.6, Source = "Sensor1", ... };
+var envelope = new MessageEnvelope<SensorData>(
+    sensorData, 
+    MessageOrigins.SensorManager, 
+    MessageTypes.SensorData
+);
 ```
 
 ---
 
 ## Notes
 - Used for encapsulating messages with metadata for event bus communication.
-- Ensures payload is never null.
-- Implements `IMessageEnvelope` for interoperability.
+- Ensures payload is never null (enforced in constructor).
+- Implements `IMessageEnvelope` for interoperability with non-generic code.
+- Provides both strongly-typed (`T Payload`) and non-generic (`object Payload`) access to the payload.
+- `MessageId` and `Timestamp` are set automatically at creation time and cannot be modified.
 
 ---
 

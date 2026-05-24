@@ -71,7 +71,6 @@ In this way all domains are isolated from each other, except for the messages th
 
 ## Documentation
 - See the `Class Sheets` folder for detailed documentation on core classes and interfaces.
-- Design decisions and additional documentation are available in the Azure DevOps Wiki.
 
 ---
 

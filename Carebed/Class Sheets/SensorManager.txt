@@ -1,55 +1,105 @@
 # Class Sheet: SensorManager
 
-**Namespace:** Carebed.Modules
+**Namespace:** Carebed.Managers
 
 ---
 
 ## Purpose
-Manages a collection of sensors, periodically polls their data, and publishes the results to the application's event bus. Handles sensor lifecycle and ensures thread-safe polling.
+Top-level manager that polls configured sensors on a single timer and publishes their readings to the application's event bus. Handles sensor lifecycle management, command routing, and state change notifications.
 
 ---
 
 ## Class Definition
 ```
-internal class SensorManager : IManager, IDisposable
+public class SensorManager : IManager
 ```
 
 ---
 
 ## Constructors
-- `SensorManager(IEventBus eventBus, IEnumerable<ISensor> sensors, double intervalMilliseconds = 1000, ISynchronizeInvoke? synchronizingObject = null)`
-  - Initializes the manager with an event bus, a collection of sensors, polling interval, and optional synchronization object.
+- `SensorManager(IEventBus eventBus, List<AbstractSensor> sensorList, double intervalMilliseconds = 1000)`
+  - Initializes a new instance of the `SensorManager` class with an event bus and a collection of sensors.
+  - Parameters:
+    - `eventBus`: The event bus used to publish sensor data (cannot be null).
+    - `sensorList`: The collection of sensors to be managed and polled (cannot be null or empty).
+    - `intervalMilliseconds`: The interval in milliseconds at which the sensors are polled (defaults to 1000 ms).
+  - Throws `ArgumentNullException` if `eventBus` or `sensorList` is null.
 
 ---
 
 ## Properties
-_None explicitly defined (uses private fields for dependencies and state)._ 
+_None explicitly exposed (uses private fields for dependencies and state management)._
 
 ---
 
-## Methods
+## Public Methods
+
+### Timer and Polling Control
 - `void Start()`
   - Starts the timer and all managed sensors.
+
 - `void Stop()`
   - Stops the timer and all managed sensors.
-- `void Dispose()`
-  - Stops operations, disposes the timer, and releases sensor resources.
+
+- `void StartTimer()`
+  - Starts the internal polling timer.
+
+- `void StopTimer()`
+  - Stops the internal polling timer.
+
+### Sensor-Specific Control
+- `void StartSensor(string sensorId)`
+  - Starts a specific sensor by its ID.
+
+- `void StopSensor(string sensorId)`
+  - Stops a specific sensor by its ID.
+
+### Polling and Configuration
+- `async Task PollOnceAsync()`
+  - Executes a single polling operation, reading data from all sensors and publishing results to the event bus.
+  - Ensures thread safety by preventing overlapping polls.
+  - Handles errors gracefully and continues polling other sensors if one fails.
+
+- `bool AdjustPollingRate(double intervalSeconds)`
+  - Allows adjustment of the polling interval at runtime.
+  - Parameters: `intervalSeconds` (must be between 0 and 60 seconds)
+  - Returns `true` if adjustment was successful, `false` otherwise.
 
 ---
 
 ## Private Methods
-- `Task PollOnceAsync()`
-  - Executes a single polling operation, reading data from all sensors and publishing to the event bus. Ensures only one poll runs at a time.
+- `void HandleSensorCommand(MessageEnvelope<SensorCommandMessage> envelope)`
+  - Handles incoming sensor command messages from the event bus.
+  - Supports commands: `StartSensor`, `StopSensor`, `AdjustPollingRate`.
+  - Publishes acknowledgment messages after executing commands.
+
+- `void HandleStateChanged(AbstractSensor sensor, SensorStates state)`
+  - Handles sensor state change events.
+  - Publishes `SensorErrorMessage` when a sensor enters Error state.
+  - Publishes `SensorStatusMessage` for other state transitions.
+
+- `void EmitSensorInventoryMessage()`
+  - Publishes initial sensor inventory message to the event bus.
 
 ---
 
 ## Usage Example
 ```csharp
-var manager = new SensorManager(eventBus, sensors);
+var eventBus = new BasicEventBus();
+var sensors = new List<AbstractSensor> 
+{
+    new TemperatureSensor { SensorID = "temp1", SensorType = SensorTypes.Temperature },
+    new HeartRateSensor { SensorID = "hr1", SensorType = SensorTypes.HeartRate }
+};
+
+var manager = new SensorManager(eventBus, sensors, intervalMilliseconds: 1000);
 manager.Start();
-// ...
+
+// Later, adjust polling rate
+manager.AdjustPollingRate(2.0); // Poll every 2 seconds
+
+// Stop when done
 manager.Stop();
-manager.Dispose();
 ```
 
 ---
@@ -57,7 +107,11 @@ manager.Dispose();
 ## Notes
 - Uses a timer to poll sensors at a configurable interval.
 - Publishes sensor data as `MessageEnvelope<SensorData>` to the event bus.
-- Ensures thread safety for polling operations.
+- Ensures thread safety for polling operations using interlocked exchange.
+- Subscribes to sensor command messages and handles them asynchronously.
+- Monitors sensor state changes and publishes corresponding status or error messages.
+- Emits sensor inventory message on initialization to inform other modules of available sensors.
+- Polling rate can be adjusted at runtime between 0 and 60 seconds.
 
 ---
 

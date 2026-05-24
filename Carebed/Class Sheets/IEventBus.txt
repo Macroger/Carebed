@@ -1,0 +1,110 @@
+# Class Sheet: IEventBus
+
+**Namespace:** Carebed.Infrastructure.EventBus
+
+---
+
+## Purpose
+Defines the contract for an event bus that supports subscribing, unsubscribing, publishing, and lifecycle management of event messages. The event bus is the core communication infrastructure enabling decoupled, asynchronous message-driven communication between all system managers and components.
+
+---
+
+## Interface Definition
+```
+public interface IEventBus
+```
+
+---
+
+## Methods
+
+### Global Message Subscription
+- `void SubscribeToGlobalMessages(Action<IMessageEnvelope> handler)`
+  - Subscribes a handler to receive ALL published messages (global notification).
+  - Useful for logging, tracing, or monitoring all system activity.
+  - Parameter: `handler` - Delegate to invoke for each published message.
+
+- `void UnsubscribeFromGlobalMessages(Action<IMessageEnvelope> handler)`
+  - Unsubscribes a handler from global message notifications.
+  - Parameter: `handler` - The same delegate previously registered.
+
+### Type-Specific Message Subscription
+- `void Subscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage`
+  - Subscribes a handler to a specific event type.
+  - Type Parameters: `TPayload` - The type of the event message, constrained to `IEventMessage`.
+  - Parameter: `handler` - Delegate to invoke when an event of type `TPayload` is published.
+  - Remarks: Multiple handlers can be registered for the same message type.
+
+- `void Unsubscribe<TPayload>(Action<MessageEnvelope<TPayload>> handler) where TPayload : IEventMessage`
+  - Unsubscribes a handler from a specific event type.
+  - Type Parameters: `TPayload` - The type of the event message, constrained to `IEventMessage`.
+  - Parameter: `handler` - The same delegate previously registered.
+
+### Publishing
+- `Task PublishAsync<TPayload>(MessageEnvelope<TPayload> message) where TPayload : IEventMessage`
+  - Publishes an event message asynchronously to all subscribed handlers.
+  - Type Parameters: `TPayload` - The type of the event message, constrained to `IEventMessage`.
+  - Parameter: `message` - The event message instance to publish (wrapped in a `MessageEnvelope<TPayload>`).
+  - Returns: A `Task` representing the asynchronous publish operation.
+  - Remarks: 
+	- Handlers are notified for both global subscriptions and type-specific subscriptions.
+	- Implementation determines dispatch strategy (synchronous, asynchronous, queued, etc.).
+
+### Lifecycle Management
+- `void Initialize()`
+  - Initializes the event bus.
+  - Remarks: Intended for setup tasks such as preloading subscriptions or configuring tracing hooks.
+
+- `void Shutdown()`
+  - Shuts down the event bus and clears all subscriptions.
+  - Remarks: After calling this method, no handlers will remain registered. New subscriptions can be made after shutdown.
+
+---
+
+## Usage Example
+```csharp
+// Create or obtain an IEventBus instance
+IEventBus eventBus = new BasicEventBus();
+eventBus.Initialize();
+
+// Subscribe to a specific message type
+eventBus.Subscribe<SensorData>((envelope) =>
+{
+	Console.WriteLine($"Received sensor data: {envelope.Payload.Value}");
+});
+
+// Subscribe to all messages (global)
+eventBus.SubscribeToGlobalMessages((envelope) =>
+{
+	Console.WriteLine($"Message from {envelope.MessageOrigin}: {envelope.MessageType}");
+});
+
+// Publish a message
+var sensorData = new SensorData { Value = 98.6, Source = "Temp1", ... };
+var envelope = new MessageEnvelope<SensorData>(
+	sensorData, 
+	MessageOrigins.SensorManager, 
+	MessageTypes.SensorData
+);
+await eventBus.PublishAsync(envelope);
+
+// Unsubscribe when done
+eventBus.Unsubscribe<SensorData>(myHandler);
+eventBus.Shutdown();
+```
+
+---
+
+## Notes
+- The event bus enables a **publish-subscribe pattern** for decoupled communication between system components.
+- All message payloads must implement `IEventMessage` to ensure type safety and compatibility.
+- **Thread-safe**: Subscription and unsubscription operations are thread-safe and can be called from multiple threads.
+- **Asynchronous Publishing**: `PublishAsync` returns a `Task` that completes when all handlers have been notified.
+- **Handler Isolation**: If one handler throws an exception, other handlers continue to be notified (exception handling is implementation-specific).
+- **Global vs. Type-Specific**: Global handlers are notified for ALL messages; type-specific handlers are notified only for matching message types.
+- Used throughout the Carebed system by managers (SensorManager, ActuatorManager, AlertManager, LoggingManager) to communicate asynchronously.
+
+---
+
+**Copilot AI Acknowledgement:**
+Some or all of this documentation was generated or assisted by GitHub Copilot AI. Please review and validate for correctness and completeness.

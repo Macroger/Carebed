@@ -1,45 +1,80 @@
 # Class Sheet: IActuator
 
-**Namespace:** Carebed.Domain.Actuators
+**Namespace:** Carebed.Models.Actuators
 
 ---
 
 ## Purpose
-Defines the contract for actuator modules in the Carebed system. Intended for future extension to support actuator-related operations.
+Defines the contract for actuator implementations in the Carebed system. Provides a standardized interface for managing actuators with state tracking, command execution, and telemetry capabilities.
 
 ---
 
 ## Interface Definition
 ```
-internal interface IActuator
+public interface IActuator
 ```
 
 ---
 
 ## Properties
-_None defined._
+- `string ActuatorId { get; }`
+  - A unique identifier for this actuator instance (e.g., "bedLift1", "headTiltA").
+  - Used for routing commands and logging.
+
+- `ActuatorTypes Type { get; }`
+  - The type of actuator, represented as an enum (e.g., BedLift, HeadTilt, LegRaise).
+  - Enables classification and filtering.
+
+- `ActuatorStates CurrentState { get; }`
+  - The current state of the actuator (e.g., Idle, Moving, Locked, Error).
+  - Backed by an internal state machine to enforce valid transitions.
 
 ---
 
 ## Methods
-_None defined._
+- `bool TryExecute(ActuatorCommands command)`
+  - Attempts to execute a command on the actuator.
+  - Returns `true` if the command is accepted and initiated, `false` if rejected (e.g., due to invalid state).
+
+- `ActuatorTelemetryMessage? GetTelemetry()`
+  - Returns telemetry data specific to this actuator (e.g., position, load, temperature).
+  - May return `null` if telemetry is not supported.
+
+- `void Reset()`
+  - Resets the actuator to a known safe state (e.g., from Error to Idle).
+  - May be a no-op for stateless or simple actuators.
+
+---
+
+## Events
+- `event Action<ActuatorStates> OnStateChanged`
+  - Triggered when the actuator transitions to a new state.
+  - Useful for emitting status messages or updating the UI.
 
 ---
 
 ## Usage Example
 ```csharp
-// Example implementation (to be extended as needed)
-public class BedMotorActuator : IActuator
+public class BedLampActuator : IActuator
 {
-    // Implementation details
+    public string ActuatorId { get; }
+    public ActuatorTypes Type { get; }
+    public ActuatorStates CurrentState { get; private set; }
+
+    public event Action<ActuatorStates> OnStateChanged;
+
+    public bool TryExecute(ActuatorCommands command) { /* ... */ }
+    public ActuatorTelemetryMessage? GetTelemetry() { /* ... */ }
+    public void Reset() { /* ... */ }
 }
 ```
 
 ---
 
 ## Notes
-- This interface is currently empty and serves as a marker or placeholder for actuator-related functionality.
-- Extend this interface as actuator requirements evolve.
+- Uses `ActuatorTypes`, `ActuatorStates`, and `ActuatorCommands` enums for type safety.
+- State transitions are managed internally by the implementation using a state machine pattern.
+- Implementations should ensure thread-safe state transitions and event notifications.
 
 ---
 

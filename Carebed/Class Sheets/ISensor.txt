@@ -1,36 +1,52 @@
 # Class Sheet: ISensor
 
-**Namespace:** Carebed.Domain.Sensors
+**Namespace:** Carebed.Models.Sensors
 
 ---
 
 ## Purpose
-Defines the minimal contract for a sensor in the Carebed system. Implementations provide a snapshot of sensor data and support lifecycle management (start/stop/dispose).
+Defines the minimal contract for a sensor in the Carebed system. Implementations provide snapshots of sensor data and support lifecycle management (start/stop).
 
 ---
 
 ## Interface Definition
 ```
-internal interface ISensor : IDisposable
+public interface ISensor
 ```
 
 ---
 
 ## Properties
-- `string Source { get; }`
-  - Logical source/id for the sensor (e.g., "Room A").
+- `string SensorID { get; init; }`
+  - Logical source/id for the sensor (e.g., "tempSensor1", "RoomA_EEG").
+  - Init-only property.
+
+- `SensorTypes SensorType { get; init; }`
+  - The type of sensor (e.g., Temperature, HeartRate, EEG).
+  - Init-only property for classification and filtering.
 
 ---
 
 ## Methods
 - `SensorData ReadData()`
-  - Reads a single snapshot of sensor data. Called by the SensorManager every poll cycle.
+  - Reads a single snapshot of sensor data.
+  - Called by the SensorManager every poll cycle.
+  - Returns a `SensorData` payload representing the current reading.
+
 - `void Start()`
   - Starts periodic sampling if the sensor implements its own timer (optional).
+  - Called by SensorManager when it is started.
+
 - `void Stop()`
   - Stops periodic sampling (optional).
-- `void Dispose()`
-  - Releases resources used by the sensor.
+  - Called by SensorManager when it is stopped.
+
+---
+
+## Events
+- `event Action<SensorStates> OnStateChanged`
+  - Triggered when the sensor transitions to a new state.
+  - Useful for emitting status messages or updating the UI.
 
 ---
 
@@ -38,11 +54,14 @@ internal interface ISensor : IDisposable
 ```csharp
 public class TemperatureSensor : ISensor
 {
-    public string Source { get; }
+    public string SensorID { get; init; }
+    public SensorTypes SensorType { get; init; }
+
+    public event Action<SensorStates> OnStateChanged;
+
     public SensorData ReadData() { /* ... */ }
     public void Start() { /* ... */ }
     public void Stop() { /* ... */ }
-    public void Dispose() { /* ... */ }
 }
 ```
 
@@ -50,7 +69,9 @@ public class TemperatureSensor : ISensor
 
 ## Notes
 - Used by SensorManager to poll and manage sensors.
-- Returns strongly-typed `SensorData` objects.
+- Returns strongly-typed `SensorData` objects for event bus communication.
+- The `OnStateChanged` event allows external listeners to react to sensor state transitions.
+- Properties `SensorID` and `SensorType` are init-only to ensure immutability after creation.
 
 ---
 

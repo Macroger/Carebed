@@ -5,13 +5,13 @@
 ---
 
 ## Purpose
-Defines the contract for an envelope that wraps event messages in the Carebed system. Ensures consistency across modules and supports logging, debugging, and extensibility.
+Defines the contract for an envelope that wraps event messages in the Carebed system. Ensures consistency across modules and supports logging, debugging, resource cleanup, and extensibility.
 
 ---
 
 ## Interface Definition
 ```
-public interface IMessageEnvelope
+public interface IMessageEnvelope : IDisposable
 ```
 
 ---
@@ -19,14 +19,19 @@ public interface IMessageEnvelope
 ## Properties
 - `Guid MessageId { get; }`
   - Unique identifier for the message envelope.
+
 - `DateTime Timestamp { get; }`
   - Timestamp when the message was created.
-- `MessageOriginEnum MessageOrigin { get; }`
-  - The origin of the message.
-- `MessageTypeEnum MessageType { get; }`
+
+- `MessageOrigins MessageOrigin { get; }`
+  - The origin of the message (e.g., SensorManager, ActuatorManager).
+
+- `MessageTypes MessageType { get; }`
   - Type of the message represented by this instance.
+
 - `object Payload { get; }`
   - The actual payload of the message (non-generic access).
+  - Required property (cannot be null).
 
 ---
 
@@ -34,20 +39,32 @@ public interface IMessageEnvelope
 - `string ToString()`
   - Provides a string representation of the message envelope.
 
+- `void Dispose()` (inherited from IDisposable)
+  - Releases resources used by the message envelope.
+
 ---
 
 ## Usage Example
 ```csharp
 public class MyEnvelope : IMessageEnvelope
 {
-    // Implement all properties and methods
+    public Guid MessageId { get; }
+    public DateTime Timestamp { get; }
+    public MessageOrigins MessageOrigin { get; }
+    public MessageTypes MessageType { get; }
+    public object Payload { get; }
+
+    public string ToString() { /* ... */ }
+    public void Dispose() { /* ... */ }
 }
 ```
 
 ---
 
 ## Notes
-- Used as a base for generic and non-generic message envelopes.
+- Implements `IDisposable` for resource cleanup and management.
+- Used as a base contract for generic and non-generic message envelopes.
+- `MessageOrigins` and `MessageTypes` provide type-safe categorization of messages.
 - Supports extensibility for additional metadata or behaviors.
 
 ---
